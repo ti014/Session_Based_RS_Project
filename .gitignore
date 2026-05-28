@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local IDE / Claude settings
+.vscode/
+.idea/
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dataset and derived data (too large / reproducible)
+data/*.dat
+data/*.pkl
+!data/.gitkeep
+
+# Model checkpoints / binary training artifacts
+*.pt
+*.pth
+*.ckpt
+
+# Keep small final result summary, ignore other binary dumps by default
+*.pkl
+!output/all_results.pkl
+
+# LaTeX auxiliary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+
+# Archives / local backups
+*.zip
+*.rar
+*.7z
+*_backup*/
