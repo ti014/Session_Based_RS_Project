@@ -149,6 +149,221 @@
 \pagenumbering{roman}
 
 % ============================================================
+% DANH MỤC TỪ VIẾT TẮT
+% ============================================================
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{DANH MỤC TỪ VIẾT TẮT}
+\section*{DANH MỤC TỪ VIẾT TẮT}
+
+\begin{longtable}{@{}p{2.8cm} p{12.5cm}@{}}
+\toprule
+\textbf{Viết tắt} & \textbf{Diễn giải} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Viết tắt} & \textbf{Diễn giải} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+RS       & Recommendation System -- Hệ thống khuyến nghị \\
+CF       & Collaborative Filtering -- Lọc cộng tác \\
+SBR      & Session-Based Recommendation -- Khuyến nghị dựa trên phiên \\
+KNN      & K-Nearest Neighbors -- K láng giềng gần nhất \\
+SKNN     & Session-based K-Nearest Neighbors -- KNN trên phiên \\
+RNN      & Recurrent Neural Network -- Mạng nơ-ron hồi quy \\
+GRU      & Gated Recurrent Unit -- Đơn vị hồi quy có cổng \\
+GRU4Rec  & Mô hình khuyến nghị dùng GRU (Hidasi et al., ICLR 2016) \\
+LSTM     & Long Short-Term Memory -- Bộ nhớ dài-ngắn hạn \\
+BPTT     & Backpropagation Through Time -- Lan truyền ngược theo thời gian \\
+BPR      & Bayesian Personalized Ranking -- Hàm mất mát xếp hạng cá nhân hoá \\
+Adam     & Adaptive Moment Estimation -- Thuật toán tối ưu Adam \\
+MRR      & Mean Reciprocal Rank -- Trung bình nghịch đảo hạng \\
+NDCG     & Normalized Discounted Cumulative Gain -- Lợi ích tích luỹ chuẩn hoá \\
+Recall@K & Tỉ lệ phiên có item đúng nằm trong Top-K gợi ý \\
+NLP      & Natural Language Processing -- Xử lý ngôn ngữ tự nhiên \\
+ICLR     & International Conference on Learning Representations \\
+CIKM     & Conference on Information and Knowledge Management \\
+RecSys   & ACM Conference on Recommender Systems \\
+UMUAI    & User Modeling and User-Adapted Interaction (tạp chí) \\
+
+\end{longtable}
+
+% ============================================================
+% BẢNG THUẬT NGỮ
+% ============================================================
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{BẢNG THUẬT NGỮ}
+\section*{BẢNG THUẬT NGỮ}
+
+\begin{longtable}{@{}p{4.2cm} p{11cm}@{}}
+\toprule
+\textbf{Thuật ngữ} & \textbf{Định nghĩa} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Thuật ngữ} & \textbf{Định nghĩa} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+Session (phiên)          & Một chuỗi tương tác liên tiếp của một người dùng trên website trong khoảng thời gian ngắn, ví dụ chuỗi click sản phẩm trong cùng lần truy cập. \\
+Item                     & Đối tượng được khuyến nghị (sản phẩm, tin tức, video, …); mỗi item có một mã định danh duy nhất. \\
+Click                    & Một hành động tương tác của người dùng với một item trong phiên. \\
+Người dùng ẩn danh       & Người dùng không đăng nhập, không có ID cố định; chỉ nhận diện được trong phạm vi phiên hiện tại. \\
+Cold-start               & Tình huống thiếu dữ liệu lịch sử (user mới, item mới, phiên mới) khiến mô hình truyền thống khó dự đoán. \\
+Embedding                & Vector số thực biểu diễn item trong không gian ẩn; các item tương đồng có embedding gần nhau. \\
+Hidden state             & Trạng thái ẩn của mạng hồi quy, tóm tắt thông tin chuỗi click đã quan sát đến thời điểm hiện tại. \\
+Top-N recommendation     & Danh sách $N$ item có điểm số cao nhất do mô hình sinh ra. \\
+Inverted index           & Cấu trúc dữ liệu ánh xạ mỗi item về tập phiên chứa item đó; dùng để tăng tốc tính tương đồng phiên trong SKNN. \\
+Hyperparameter           & Tham số do người thiết kế chọn trước khi huấn luyện (ví dụ $K$, learning rate, kích thước embedding), không học từ dữ liệu. \\
+Epoch                    & Một lượt mô hình quét qua toàn bộ tập huấn luyện. \\
+Mini-batch               & Tập con nhỏ các mẫu được tính gradient cùng lúc trong một bước cập nhật. \\
+Train/Test split         & Việc chia dữ liệu thành tập huấn luyện và tập kiểm tra; trong báo cáo này chia theo trục thời gian. \\
+Leave-one-out            & Giao thức đánh giá: dùng tất cả click đầu của phiên làm đầu vào, click cuối làm đáp án để kiểm tra Top-N. \\
+Data leakage             & Hiện tượng thông tin từ tập test rò rỉ vào tập huấn luyện, khiến kết quả đánh giá thiên lệch. \\
+Popularity Baseline      & Mô hình tham chiếu luôn gợi ý các item được click nhiều nhất, dùng làm mốc tối thiểu. \\
+Negative sample          & Item ngẫu nhiên dùng làm ví dụ ``sai'' trong hàm mất mát BPR/TOP1 để tách điểm khỏi item đúng. \\
+
+\end{longtable}
+
+% ============================================================
+% DANH MỤC KÝ HIỆU
+% ============================================================
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{DANH MỤC KÝ HIỆU}
+\section*{DANH MỤC KÝ HIỆU}
+
+\textit{Bảng liệt kê các ký hiệu toán học chính xuất hiện trong báo cáo. Ký hiệu được nhóm theo chủ đề; chi tiết cục bộ được lặp lại trong từng mục để tiện đọc liền mạch.}
+
+\vspace{0.4cm}
+
+\textbf{1. Phiên, item và tập dữ liệu}
+
+\begin{longtable}{@{}p{4.2cm} p{11cm}@{}}
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$\mathcal{I}$                                & Tập toàn bộ item trong catalog \\
+$M = |\mathcal{I}|$                          & Tổng số item \\
+$i, j$                                       & Một item cụ thể \\
+$S = [i_1, i_2, \ldots, i_t]$                & Một phiên (chuỗi item theo thứ tự thời gian) \\
+$|S|$                                        & Độ dài phiên (số item trong phiên) \\
+$\mathcal{S}$                                & Tập tất cả phiên \\
+$\mathcal{S}_{train}, \mathcal{S}_{test}$    & Tập phiên huấn luyện và kiểm tra \\
+$N = |\mathcal{S}_{train}|$                  & Tổng số phiên huấn luyện \\
+$T_{split}$                                  & Thời điểm chia train/test theo thời gian \\
+$\tau_{min}$                                 & Ngưỡng tần suất tối thiểu để giữ item \\
+$l_{min}, l_{max}$                           & Độ dài phiên tối thiểu/tối đa được giữ \\
+
+\end{longtable}
+
+\textbf{2. Thuật toán SKNN}
+
+\begin{longtable}{@{}p{4.2cm} p{11cm}@{}}
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$S_q$                          & Phiên truy vấn (phiên hiện tại cần gợi ý) \\
+$S_n$                          & Một phiên lịch sử bất kỳ ($n = 1, \ldots, N$) \\
+$K$                            & Số hàng xóm gần nhất (siêu tham số) \\
+$\text{KNN}(S_q)$              & Tập $K$ phiên có độ tương tự cao nhất với $S_q$ \\
+$\text{sim}(S_q, S_n)$         & Độ tương tự cosine giữa hai phiên \\
+$|S_q \cap S_n|$               & Số item chung giữa hai phiên \\
+$\text{score}(i)$              & Điểm khuyến nghị cho item $i$ \\
+$\mathbb{1}[\cdot]$            & Hàm chỉ thị (indicator): bằng 1 nếu điều kiện đúng, ngược lại 0 \\
+$\bar{F}$                      & Số phiên trung bình chứa một item (dùng phân tích độ phức tạp) \\
+$C$                            & Số phiên ứng viên sau khi truy vấn inverted index \\
+
+\end{longtable}
+
+\textbf{3. Mạng nơ-ron hồi quy và GRU4Rec}
+
+\begin{longtable}{@{}p{4.2cm} p{11cm}@{}}
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$E \in \mathbb{R}^{M \times d}$              & Ma trận embedding của catalog \\
+$d$                                          & Số chiều embedding \\
+$x_t = E[i_t] \in \mathbb{R}^d$              & Vector embedding của item tại bước $t$ \\
+$H$                                          & Số chiều hidden state \\
+$h_t \in \mathbb{R}^{H}$                     & Hidden state tại bước $t$ \\
+$\tilde{h}_t$                                & Hidden state ứng viên (candidate) trong GRU \\
+$z_t \in (0,1)^H$                            & Cổng update (update gate) \\
+$r_t \in (0,1)^H$                            & Cổng reset (reset gate) \\
+$W_z, W_r, W_h \in \mathbb{R}^{H \times d}$  & Ma trận trọng số áp lên input \\
+$U_z, U_r, U_h \in \mathbb{R}^{H \times H}$  & Ma trận trọng số áp lên hidden state \\
+$b_z, b_r, b_h \in \mathbb{R}^H$             & Vector bias của các cổng và candidate \\
+$W_o \in \mathbb{R}^{M \times H}$            & Ma trận trọng số tầng output \\
+$b_o \in \mathbb{R}^M$                       & Bias tầng output \\
+$\hat{y}_t \in \mathbb{R}^M$                 & Vector logits trên toàn catalog \\
+$\sigma(\cdot)$                              & Hàm sigmoid, $\sigma(x) = 1/(1+e^{-x})$ \\
+$\tanh(\cdot)$                               & Hàm tanh, output $\in (-1, 1)$ \\
+$\odot$                                      & Phép nhân Hadamard (element-wise) \\
+
+\end{longtable}
+
+\textbf{4. Huấn luyện, mất mát và đánh giá}
+
+\begin{longtable}{@{}p{4.2cm} p{11cm}@{}}
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$\theta$                                     & Tập tham số cần học của mô hình \\
+$\eta$                                       & Learning rate \\
+$E$ (epoch)                                  & Số vòng huấn luyện qua toàn tập \\
+$B$                                          & Kích thước mini-batch \\
+$\mathcal{D}$                                & Tập cặp huấn luyện $(S, i^+)$ \\
+$i^+$                                        & Item đúng (ground truth, click tiếp theo) \\
+$j$                                          & Negative sample \\
+$N_s$                                        & Số negative sample mỗi cặp \\
+$\mathcal{L}_{CE}$                           & Hàm mất mát Cross-Entropy \\
+$\mathcal{L}_{BPR}$                          & Hàm mất mát Bayesian Personalized Ranking \\
+$P(i \mid S)$                                & Xác suất mô hình gán cho item $i$ khi cho trước phiên $S$ \\
+$\text{rank}_n$                              & Vị trí của item đúng trong danh sách gợi ý của phiên $n$ \\
+Recall@$K$                                   & Tỉ lệ phiên có item đúng trong Top-$K$ gợi ý \\
+MRR@$K$                                      & Trung bình nghịch đảo hạng của item đúng (cắt ở Top-$K$) \\
+
+\end{longtable}
+
+% ============================================================
 % MỤC LỤC
 % ============================================================
 \newpage
