@@ -4,7 +4,7 @@ Hệ thống khuyến nghị dựa trên phiên (Session-Based Recommendation) c
 
 ## Thông tin nhóm
 
-| Vai trò | Họ và tên | MSSV |
+| Vai trò | Họ và tên | MSHV |
 |---|---|---:|
 | Thành viên | Phan Nguyễn Mai Phương | 25002711 |
 | Thành viên | Ngô Quốc Hoàng | 25001771 |
