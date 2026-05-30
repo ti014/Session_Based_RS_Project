@@ -727,7 +727,7 @@ Session-based K-Nearest Neighbors (SKNN) là phương pháp dựa trên nguyên 
 \textit{``Tìm $K$ phiên lịch sử tương tự nhất với phiên hiện tại, sau đó tổng hợp các item từ những phiên đó (có trọng số theo độ tương tự) để sinh khuyến nghị.''}
 \end{quote}
 
-Phương pháp này đơn giản về mặt khái niệm nhưng đã được chứng minh là rất hiệu quả, thậm chí vượt trội hơn nhiều phương pháp deep learning phức tạp trong một số trường hợp \cite{ludewig2018}.
+Phương pháp này đơn giản về mặt khái niệm nhưng đạt hiệu quả cạnh tranh với nhiều phương pháp học sâu trong một số thiết lập thực nghiệm \cite{ludewig2018}.
 
 \subsubsection{Ký hiệu}
 
@@ -1296,6 +1296,35 @@ Trong báo cáo này, chúng tôi sử dụng \textbf{Recall@20} và \textbf{MRR
 \section{THÍ NGHIỆM}
 \label{chap:experiments}
 
+\subsection{Nguồn công thức, tài liệu và vai trò sử dụng}
+
+Bảng \ref{tab:formula_source_map} tổng hợp nguồn gốc các công thức, mô hình và cách chúng được sử dụng trong báo cáo. Mục tiêu của bảng là tách rõ ba lớp thông tin: (i) công thức/ý tưởng đến từ tài liệu nào, (ii) được dùng để làm gì trong phần triển khai, và (iii) phần nào là kết quả thực nghiệm riêng của nhóm.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Nguồn công thức, mô hình và vai trò tài liệu tham khảo chính}
+\label{tab:formula_source_map}
+\begin{tabularx}{\textwidth}{L{3.2cm} L{4.1cm} X}
+\toprule
+\textbf{Thành phần} & \textbf{Nguồn chính} & \textbf{Vai trò trong báo cáo} \\
+\midrule
+Bài toán session-based recommendation & Hidasi et al. (2016) \cite{hidasi2016}; Ludewig \& Jannach (2018) \cite{ludewig2018} & Làm nền cho bài toán dự đoán item tiếp theo từ chuỗi click ngắn trong phiên hiện tại, không cần user ID dài hạn. \\
+Cosine similarity cho SKNN & Ludewig \& Jannach (2018) \cite{ludewig2018}; Jannach et al. (2017) \cite{jannach2017} & Dùng để đo mức giống nhau giữa phiên truy vấn và phiên lịch sử, sau đó chọn $K$ hàng xóm gần nhất. \\
+Công thức score trong SKNN & Ludewig \& Jannach (2018) \cite{ludewig2018}; Jannach et al. (2017) \cite{jannach2017} & Dùng để cộng trọng số similarity của các phiên hàng xóm cho từng item ứng viên, rồi sinh Top-20 gợi ý. \\
+Công thức GRU & Cho et al. (2014) \cite{cho2014}; Goodfellow et al. (2016) \cite{goodfellow2016} & Dùng để giải thích update gate, reset gate, candidate state và cách GRU giảm vấn đề vanishing gradient trong chuỗi. \\
+Kiến trúc GRU4Rec & Hidasi et al. (2016) \cite{hidasi2016} & Dùng làm mô hình học sâu chính: item embedding $\rightarrow$ GRU $\rightarrow$ linear output $\rightarrow$ score item tiếp theo. \\
+Cross-Entropy Loss & Goodfellow et al. (2016) \cite{goodfellow2016} & Dùng trong cài đặt thực nghiệm của nhóm như bài toán phân loại đa lớp trên toàn bộ catalog item. \\
+BPR Loss & Rendle et al. (2009) \cite{rendle2009} & Trình bày như hàm mất mát ranking thay thế; báo cáo giải thích lý thuyết nhưng thí nghiệm chính dùng Cross-Entropy. \\
+Recall@20, MRR@20 và leave-one-out & Hidasi et al. (2016) \cite{hidasi2016}; Ludewig \& Jannach (2018) \cite{ludewig2018} & Dùng để đánh giá cùng một giao thức cho Popularity, SKNN và GRU4Rec. \\
+Yoochoose / RecSys Challenge 2015 & YOOCHOOSE GmbH (2015) \cite{yoochoose2015} & Là bộ dữ liệu thực nghiệm; nhóm chỉ dùng file click để dự đoán click tiếp theo. \\
+NARM, SR-GNN, BERT4Rec & Li et al. (2017) \cite{li2017}; Wu et al. (2019) \cite{wu2019}; Sun et al. (2019) \cite{sun2019} & Dùng trong phần hướng mở rộng, không dùng trong thực nghiệm chính của báo cáo. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Các biểu đồ trong Chương \ref{chap:experiments} và Chương \ref{chap:analysis} được tổng hợp từ kết quả thực nghiệm của nhóm, lưu trong \texttt{output/all\_results.pkl} và trực quan hóa bằng \texttt{src/plots.py}. Các tài liệu tham khảo được dùng làm cơ sở cho bài toán, mô hình, metric và cách diễn giải kết quả; còn số liệu trình bày trong bảng và hình là kết quả chạy pipeline của project này.
+
 \subsection{Bộ dữ liệu Yoochoose (RecSys Challenge 2015)}
 
 \subsubsection{Giới thiệu bộ dữ liệu}
@@ -1388,6 +1417,17 @@ Do dataset gốc rất lớn (33 triệu click, 9.2 triệu session), việc ch�
 \end{tabular}
 \end{table}
 
+\textbf{Giải thích lựa chọn tham số.} Các tham số trong Bảng \ref{tab:hyperparams} được chọn theo ba nguyên tắc: bám sát giao thức phổ biến trong session-based recommendation, phù hợp với tài nguyên tính toán sẵn có, và giữ mức phức tạp đủ kiểm soát để so sánh công bằng giữa baseline và mô hình học sâu.
+
+\begin{itemize}
+    \item \textbf{Top-N = 20:} Chọn Recall@20 và MRR@20 vì đây là cấu hình đánh giá thường gặp trong các nghiên cứu GRU4Rec và đánh giá thuật toán session-based \cite{hidasi2016,ludewig2018}. Top-20 cũng phù hợp với giao diện gợi ý thực tế, nơi hệ thống thường hiển thị một danh sách ngắn thay vì toàn bộ catalog.
+    \item \textbf{Mẫu dữ liệu 1/64:} Yoochoose đầy đủ có hàng chục triệu click, nên mẫu 1/64 giúp giảm chi phí xử lý trong phạm vi tài nguyên hiện có và vẫn đủ lớn để so sánh tương đối giữa các mô hình. Kết luận trong báo cáo vì vậy tập trung vào thứ hạng mô hình trong cùng cấu hình, không khẳng định đây là kết quả đại diện cho toàn bộ dataset.
+    \item \textbf{K của SKNN:} Dải $K \in \{50,100,200,500\}$ được chọn để bao phủ từ ít hàng xóm đến nhiều hàng xóm. Kết quả ở Mục \ref{fig:recall_k} cho thấy Recall tăng rồi bão hòa; $K=500$ được dùng làm cấu hình cuối vì đạt Recall cao nhất, dù mức chênh lệch so với $K=200$ là không đáng kể.
+    \item \textbf{Embedding size 64 và hidden size 128:} Đây là cấu hình vừa phải cho GRU4Rec: đủ năng lực học biểu diễn item và trạng thái phiên, nhưng không làm số tham số quá lớn so với mẫu 1/64. Với $M=10{,}435$, mô hình có khoảng 2.09 triệu tham số, phù hợp mục tiêu thực nghiệm minh họa.
+    \item \textbf{Learning rate 0.001, Adam, batch size 256:} Adam với learning rate $10^{-3}$ là lựa chọn phù hợp cho mô hình GRU quy mô nhỏ; batch size 256 cân bằng giữa tốc độ huấn luyện và bộ nhớ. Weight decay $10^{-5}$ và dropout 0.25 hỗ trợ regularization trong khi vẫn giữ kiến trúc gọn.
+    \item \textbf{10 epoch:} Số epoch được giới hạn để thời gian chạy hợp lý. Đường cong loss vẫn giảm ở epoch 10, nên báo cáo không xem GRU4Rec là đã hội tụ hoàn toàn; đây là lý do phần thảo luận nhấn mạnh GRU4Rec có thể cải thiện thêm nếu tăng epoch và tinh chỉnh tham số sâu hơn.
+\end{itemize}
+
 \subsubsection{Phần cứng và phần mềm}
 
 \begin{table}[H]
@@ -1461,7 +1501,7 @@ Quy trình tiền xử lý được thực hiện theo các bước sau, với s
     \item \textbf{Tính tái lập:} cố định seed=42 cho cả việc lấy mẫu dữ liệu và khởi tạo trọng số GRU4Rec.
 \end{itemize}
 
-\textbf{Vì sao các chỉ số thấp hơn con số trong bài báo gốc?} Hidasi et al. (2016) \cite{hidasi2016} báo cáo Recall@20 cao hơn nhiều trên \emph{toàn bộ} Yoochoose. Con số của chúng tôi thấp hơn là điều \emph{đã được dự đoán trước}, không phải lỗi, do hai khác biệt về thiết kế thí nghiệm:
+\textbf{Vì sao các chỉ số thấp hơn kết quả trong Hidasi et al. (2016)?} Hidasi et al. (2016) \cite{hidasi2016} báo cáo Recall@20 cao hơn trên \emph{toàn bộ} Yoochoose. Kết quả trong báo cáo này thấp hơn do hai khác biệt chính trong thiết kế thí nghiệm:
 \begin{enumerate}
     \item \textbf{Chỉ dùng 1/64 dữ liệu:} ít hơn 64 lần số phiên huấn luyện $\rightarrow$ inverted index của SKNN thưa hơn và GRU4Rec có ít dữ liệu hơn để học embedding, nên Recall tuyệt đối giảm theo.
     \item \textbf{Chia train/test theo thời gian (không phải ngẫu nhiên):} tập test gồm các phiên \emph{muộn nhất}, chứa nhiều item/hành vi chưa từng thấy trong train. Đây là kịch bản khó hơn nhưng \emph{trung thực} hơn so với chia ngẫu nhiên -- vốn gây rò rỉ thông tin tương lai (data leakage) và thổi phồng kết quả.
@@ -1489,7 +1529,7 @@ Popularity Baseline & 0.0187 (1.87\%) & 0.0041 \\
 \begin{itemize}
     \item Recall@20 = 1.87\%: Chỉ trong 1.87\% trường hợp, item mà người dùng thực sự click tiếp theo nằm trong Top-20 item phổ biến nhất.
     \item MRR@20 = 0.0041: Khi có hit, item đúng thường ở vị trí rất thấp trong danh sách.
-    \item Kết quả này cho thấy: \textbf{chỉ dựa vào popularity là hoàn toàn không đủ}. Cần tận dụng thông tin từ phiên hiện tại.
+    \item Kết quả này cho thấy popularity thuần túy chưa đủ cho bài toán theo phiên; cần tận dụng thông tin từ phiên hiện tại.
     \item Tuy nhiên, Popularity Baseline vẫn quan trọng như một \textbf{lower bound} để đánh giá các phương pháp phức tạp hơn.
 \end{itemize}
 
@@ -1512,7 +1552,7 @@ SKNN (K=500) & \textbf{0.2952} (29.52\%) & \textbf{0.1349} \\
 \begin{itemize}
     \item Recall@20 = 29.52\%: Trong gần 1/3 trường hợp, item đúng nằm trong Top-20 gợi ý. Đây là cải thiện \textbf{+27.65 điểm} so với Popularity Baseline.
     \item MRR@20 = 0.1349: Trung bình, item đúng nằm ở khoảng vị trí thứ 7 ($1/0.1349 \approx 7.4$) trong danh sách Top-20.
-    \item SKNN đạt hiệu quả cao mặc dù \textbf{không cần huấn luyện} (training-free), không cần GPU, và rất đơn giản về mặt triển khai.
+    \item SKNN đạt hiệu quả cao trong cấu hình này dù \textbf{không cần huấn luyện} (training-free), không cần GPU, và có cách triển khai tương đối gọn.
     \item Thời gian inference: khoảng 50--100ms cho mỗi session (với inverted index).
 \end{itemize}
 
@@ -1534,9 +1574,9 @@ GRU4Rec (10 epoch) & \textbf{0.2796} (27.96\%) & \textbf{0.1262} \\
 \textbf{Nhận xét:}
 \begin{itemize}
     \item Recall@20 = 27.96\%: Cải thiện \textbf{+26.09 điểm} so với Popularity, nhưng \textbf{thấp hơn SKNN 1.56 điểm}.
-    \item MRR@20 = 0.1262: Thấp hơn SKNN 0.0087 (SKNN xếp hạng item đúng nhỉnh hơn một chút).
+    \item MRR@20 = 0.1262: Thấp hơn SKNN 0.0087 (SKNN xếp hạng item đúng cao hơn nhẹ).
     \item Trên cấu hình thí nghiệm này (mẫu 1/64, chia theo thời gian, 10 epoch), GRU4Rec \textbf{chưa vượt} SKNN. Kết quả này phù hợp với Ludewig \& Jannach (2018) \cite{ludewig2018}: SKNN là baseline cực mạnh mà nhiều mô hình deep learning khó vượt qua, nhất là khi dữ liệu hạn chế và số epoch còn thấp.
-    \item GRU4Rec vẫn có lợi thế lý thuyết (\textbf{học được thứ tự} click) và còn nhiều dư địa cải thiện (thêm dữ liệu, thêm epoch, tinh chỉnh siêu tham số) -- phân tích chi tiết ở Mục \ref{chap:analysis}.
+    \item GRU4Rec vẫn có lợi thế lý thuyết (\textbf{học được thứ tự} click) và có thể cải thiện thêm khi tăng dữ liệu, số epoch hoặc tinh chỉnh siêu tham số -- phân tích chi tiết ở Mục \ref{chap:analysis}.
 \end{itemize}
 
 
@@ -1563,11 +1603,11 @@ GRU4Rec (10 epoch) & \textbf{0.2796} (27.96\%) & \textbf{0.1262} \\
 \textbf{Phân tích:}
 
 \begin{enumerate}
-    \item \textbf{K=50 (quá nhỏ):} Chỉ xét 50 phiên tương tự nhất. Nhiều item tốt bị bỏ sót vì không đủ ``phiếu bầu'' từ hàng xóm. Recall thấp nhất (0.2702).
+    \item \textbf{K=50:} Chỉ xét 50 phiên tương tự nhất. Một số item phù hợp có thể chưa nhận đủ đóng góp từ các phiên hàng xóm, dẫn đến Recall thấp nhất trong dải thử nghiệm (0.2702).
 
     \item \textbf{K=100 và K=200:} Hiệu năng tăng đều so với K=50 (0.2846 rồi 0.2951). Đây là giai đoạn thêm hàng xóm vẫn còn mang lại lợi ích rõ rệt.
 
-    \item \textbf{K=500 (tốt nhất):} Đạt Recall cao nhất (0.2952), nhưng chỉ nhỉnh hơn K=200 đúng 0.0001 -- tức đã gần như bão hòa. Với K lớn, mô hình ``nhìn thấy'' nhiều pattern hơn nhưng lợi ích biên giảm dần (diminishing returns).
+    \item \textbf{K=500:} Đạt Recall cao nhất (0.2952), nhưng chỉ cao hơn K=200 khoảng 0.0001 -- cho thấy hiệu năng đã gần bão hòa. Khi K lớn, mô hình khai thác nhiều mẫu đồng xuất hiện hơn nhưng lợi ích biên giảm dần (diminishing returns).
 
     \item \textbf{Trade-off:} K lớn hơn $\rightarrow$ Recall cao hơn nhưng thời gian tính toán cũng tăng. Từ K=200 trở lên, lợi ích gần như không đáng kể nên K=200--500 là vùng cân bằng hợp lý.
 \end{enumerate}
@@ -1577,7 +1617,7 @@ Hình \ref{fig:recall_k} minh họa xu hướng Recall@20 theo K.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.75\textwidth]{recall_theo_k_final.png}
-\caption{Ảnh hưởng của K đến Recall@20 của SKNN}
+\caption{Ảnh hưởng của K đến Recall@20 của SKNN. Nguồn: kết quả thực nghiệm của nhóm từ \texttt{output/all\_results.pkl}, trực quan hóa bằng \texttt{src/plots.py}.}
 \label{fig:recall_k}
 \end{figure}
 
@@ -1596,7 +1636,7 @@ Hình \ref{fig:loss_curve} thể hiện đường cong loss trong quá trình hu
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.75\textwidth]{gru4rec_loss_curve.png}
-\caption{Đường cong loss huấn luyện của GRU4Rec qua 10 epoch}
+\caption{Đường cong loss huấn luyện của GRU4Rec qua 10 epoch. Nguồn: kết quả thực nghiệm của nhóm từ \texttt{output/all\_results.pkl}, trực quan hóa bằng \texttt{src/plots.py}.}
 \label{fig:loss_curve}
 \end{figure}
 
@@ -1653,24 +1693,24 @@ Hình \ref{fig:comparison} minh họa trực quan sự khác biệt giữa 3 mô
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{so_sanh_final.png}
-\caption{Biểu đồ so sánh Recall@20 và MRR@20 của 3 mô hình}
+\caption{Biểu đồ so sánh Recall@20 và MRR@20 của 3 mô hình. Nguồn: kết quả thực nghiệm của nhóm từ \texttt{output/all\_results.pkl}, trực quan hóa bằng \texttt{src/plots.py}.}
 \label{fig:comparison}
 \end{figure}
 
 \textbf{Nhận xét tổng quan:}
 \begin{enumerate}
-    \item Cả SKNN và GRU4Rec đều vượt trội hoàn toàn so với Popularity Baseline (cải thiện hơn 26 điểm Recall).
-    \item SKNN nhỉnh hơn GRU4Rec một chút (+1.56 điểm Recall, +0.0087 MRR) trên cấu hình thí nghiệm này.
+    \item Cả SKNN và GRU4Rec đều cải thiện rõ so với Popularity Baseline (hơn 26 điểm Recall).
+    \item SKNN cao hơn GRU4Rec một mức nhỏ (+1.56 điểm Recall, +0.0087 MRR) trên cấu hình thí nghiệm này.
     \item Việc SKNN ngang ngửa hoặc vượt GRU4Rec là kết quả thường gặp, phù hợp với các nghiên cứu trước \cite{ludewig2018, jannach2017}.
 \end{enumerate}
 
 \subsection{Phân tích tại sao SKNN vượt Popularity (+27.65 điểm)}
 
-Sự vượt trội lớn của SKNN so với Popularity Baseline (+27.65 điểm Recall, tức gấp $\sim$15.8 lần) có thể được giải thích bởi các yếu tố sau:
+Mức cải thiện của SKNN so với Popularity Baseline (+27.65 điểm Recall, tương đương khoảng $15.8$ lần theo tỉ lệ Recall) có thể được giải thích bởi các yếu tố sau:
 
 \subsubsection{Tận dụng thông tin phiên hiện tại}
 
-Popularity Baseline hoàn toàn \textbf{bỏ qua} thông tin từ phiên hiện tại -- nó gợi ý cùng một danh sách item cho mọi người dùng, bất kể họ đang xem gì. Ngược lại, SKNN sử dụng phiên hiện tại để tìm các phiên tương tự, từ đó sinh khuyến nghị \textbf{cá nhân hóa theo ngữ cảnh}.
+Popularity Baseline không sử dụng thông tin từ phiên hiện tại -- nó gợi ý cùng một danh sách item cho mọi người dùng, bất kể họ đang xem gì. Ngược lại, SKNN sử dụng phiên hiện tại để tìm các phiên tương tự, từ đó sinh khuyến nghị \textbf{cá nhân hóa theo ngữ cảnh}.
 
 \textbf{Ví dụ minh họa:}
 \begin{itemize}
@@ -1740,7 +1780,7 @@ Có nhiều lý do giải thích tại sao GRU4Rec chưa vượt được SKNN t
 
     \item \textbf{Chưa hội tụ:} GRU4Rec chỉ được huấn luyện 10 epoch, loss vẫn đang giảm (4.41 $\to$ 4.33 ở epoch 9--10), chưa hoàn toàn hội tụ. Với nhiều epoch hơn, kết quả nhiều khả năng cải thiện thêm.
 
-    \item \textbf{SKNN rất mạnh:} Như Ludewig \& Jannach (2018) \cite{ludewig2018} đã chỉ ra, SKNN là baseline cực kỳ mạnh, thường ngang ngửa hoặc vượt nhiều phương pháp deep learning -- đặc biệt khi item phổ biến lặp lại giữa các phiên gần nhau (rất đúng với hành vi e-commerce của Yoochoose).
+    \item \textbf{SKNN là baseline mạnh:} Như Ludewig \& Jannach (2018) \cite{ludewig2018} đã chỉ ra, các phương pháp neighborhood là mốc so sánh cạnh tranh với nhiều mô hình học sâu, đặc biệt khi item phổ biến lặp lại giữa các phiên gần nhau như trong dữ liệu thương mại điện tử Yoochoose.
 \end{enumerate}
 
 \subsection{Ưu nhược điểm từng phương pháp}
@@ -1755,7 +1795,7 @@ Có nhiều lý do giải thích tại sao GRU4Rec chưa vượt được SKNN t
 \midrule
 \textbf{Popularity} & 
 \begin{itemize}[leftmargin=0.3cm, topsep=0pt]
-    \item Cực kỳ đơn giản
+    \item Đơn giản về mặt triển khai
     \item Không cần tính toán
     \item Baseline tốt để so sánh
     \item Luôn có kết quả (không fail)
@@ -1763,7 +1803,7 @@ Có nhiều lý do giải thích tại sao GRU4Rec chưa vượt được SKNN t
 \begin{itemize}[leftmargin=0.3cm, topsep=0pt]
     \item Không cá nhân hóa
     \item Bỏ qua ngữ cảnh phiên
-    \item Hiệu quả rất thấp
+    \item Hiệu quả thấp trong cấu hình này
     \item Gợi ý giống nhau cho mọi user
 \end{itemize} \\
 \midrule
@@ -1815,7 +1855,7 @@ Hyperparameter $K$ kiểm soát \textbf{trade-off giữa precision và coverage}
 \begin{itemize}
     \item \textbf{K nhỏ (precision cao, coverage thấp):} Chỉ xét ít phiên rất tương tự $\rightarrow$ item được gợi ý có độ tin cậy cao nhưng đa dạng thấp. Có thể bỏ sót item tốt từ phiên ít tương tự hơn.
     
-    \item \textbf{K lớn (precision thấp hơn, coverage cao):} Xét nhiều phiên, kể cả phiên ít tương tự $\rightarrow$ đa dạng hơn nhưng có thể bị nhiễu từ phiên không liên quan.
+    \item \textbf{K lớn (precision thấp hơn, coverage cao):} Xét nhiều phiên, kể cả phiên ít tương tự $\rightarrow$ danh sách gợi ý đa dạng hơn nhưng dễ chịu ảnh hưởng từ các phiên ít liên quan.
 \end{itemize}
 
 \subsubsection{Phân tích theo lý thuyết bias--variance}
@@ -1823,9 +1863,9 @@ Hyperparameter $K$ kiểm soát \textbf{trade-off giữa precision và coverage}
 \begin{itemize}
     \item \textbf{K nhỏ $\rightarrow$ High variance:} Kết quả phụ thuộc nhiều vào vài phiên cụ thể. Nếu phiên hàng xóm ``may mắn'' chứa item đúng $\rightarrow$ hit. Nếu không $\rightarrow$ miss.
     
-    \item \textbf{K lớn $\rightarrow$ High bias:} Kết quả bị ``trung bình hóa'' bởi nhiều phiên, có xu hướng gợi ý item phổ biến (giống Popularity). Mất đi tính cá nhân hóa.
+    \item \textbf{K lớn $\rightarrow$ High bias:} Kết quả bị ``trung bình hóa'' bởi nhiều phiên, có xu hướng ưu tiên item phổ biến và giảm mức cá nhân hóa theo phiên truy vấn.
     
-    \item \textbf{K tối ưu:} Cân bằng giữa bias và variance. Trong thí nghiệm, K=500 cho kết quả tốt nhất trên dataset này.
+    \item \textbf{K đạt kết quả cao nhất trong dải thử nghiệm:} Cân bằng giữa bias và variance. Trong thí nghiệm, K=500 cho Recall@20 cao nhất trên dataset này.
 \end{itemize}
 
 \subsubsection{Khuyến nghị chọn K trong thực tế}
@@ -1834,7 +1874,7 @@ Hyperparameter $K$ kiểm soát \textbf{trade-off giữa precision và coverage}
     \item Bắt đầu với K=100--500 (phạm vi thường cho kết quả tốt)
     \item Dùng validation set để tune K
     \item Xem xét trade-off giữa chất lượng và tốc độ
-    \item K tối ưu phụ thuộc vào đặc điểm dataset (kích thước, sparsity, diversity)
+    \item K phù hợp phụ thuộc vào đặc điểm dataset (kích thước, sparsity, diversity)
 \end{enumerate}
 
 \subsection{Hạn chế của thí nghiệm}
@@ -1842,7 +1882,7 @@ Hyperparameter $K$ kiểm soát \textbf{trade-off giữa precision và coverage}
 Các kết quả trên nên được đọc trong phạm vi thiết kế thí nghiệm, thay vì xem như kết luận tuyệt đối cho mọi hệ thống khuyến nghị:
 
 \begin{enumerate}
-    \item \textbf{Mẫu dữ liệu 1/64:} Cách lấy mẫu giúp thí nghiệm chạy được trên máy cá nhân, nhưng số liệu tuyệt đối có thể thay đổi khi dùng toàn bộ Yoochoose. Kết luận đáng tin hơn ở đây là thứ tự tương đối trong cùng cấu hình: Popularity thấp rõ rệt, GRU4Rec và SKNN tốt hơn nhiều.
+    \item \textbf{Mẫu dữ liệu 1/64:} Cách lấy mẫu giúp thí nghiệm phù hợp với tài nguyên tính toán hiện có, nhưng số liệu tuyệt đối có thể thay đổi khi dùng toàn bộ Yoochoose. Kết luận đáng tin hơn ở đây là thứ tự tương đối trong cùng cấu hình: Popularity thấp rõ rệt, GRU4Rec và SKNN cao hơn rõ.
 
     \item \textbf{Một miền dữ liệu:} Yoochoose là clickstream thương mại điện tử. Kết quả chưa tự động suy rộng sang tin tức, nhạc, giáo dục, hoặc dataset tiếng Việt nếu hành vi phiên khác đáng kể.
 
@@ -1875,14 +1915,14 @@ Báo cáo này trình bày bài toán Session-based Recommendation trong bối c
 \begin{enumerate}
     \item \textbf{Popularity Baseline} (Recall@20 = 1.87\%): Kết quả này cho thấy việc chỉ gợi ý item phổ biến không đủ cho bài toán theo phiên, nhưng vẫn cần giữ làm mốc so sánh tối thiểu.
 
-    \item \textbf{SKNN với K=500} (Recall@20 = 29.52\%, MRR@20 = 0.1349): Phương pháp dựa trên phiên lân cận đạt kết quả tốt nhất trong thí nghiệm, cao hơn Popularity +27.65 điểm Recall@20. Điểm mạnh của SKNN là không cần huấn luyện và dễ kiểm tra bằng trực giác.
+    \item \textbf{SKNN với K=500} (Recall@20 = 29.52\%, MRR@20 = 0.1349): Phương pháp dựa trên phiên lân cận đạt kết quả cao nhất trong thí nghiệm, cao hơn Popularity +27.65 điểm Recall@20. Điểm mạnh của SKNN là không cần huấn luyện và có thể diễn giải qua các phiên hàng xóm.
 
     \item \textbf{GRU4Rec với 10 epoch} (Recall@20 = 27.96\%, MRR@20 = 0.1262): Mô hình học sâu đạt kết quả gần SKNN nhưng \textbf{chưa vượt} (thấp hơn 1.56 điểm Recall) trong cấu hình mẫu 1/64 và 10 epoch. Kết quả này hợp lý vì GRU4Rec thường cần nhiều dữ liệu, nhiều epoch và tune siêu tham số kỹ hơn.
 \end{enumerate}
 
 \textbf{Kết luận quan trọng:}
 \begin{itemize}
-    \item Thông tin trong phiên hiện tại, dù chỉ gồm vài click, đã cải thiện chất lượng gợi ý rất rõ so với popularity thuần túy.
+    \item Thông tin trong phiên hiện tại, dù chỉ gồm vài click, đã cải thiện chất lượng gợi ý đáng kể so với popularity thuần túy.
     \item SKNN là baseline mạnh và dễ giải thích; vì vậy nên xem nó là mốc so sánh nghiêm túc trước khi kết luận một mô hình học sâu là tốt hơn.
     \item GRU4Rec có lợi thế khi học thứ tự click, nhưng \textbf{không mặc định vượt SKNN} nếu dữ liệu ít, phiên ngắn hoặc quá trình huấn luyện chưa được tối ưu.
 \end{itemize}
