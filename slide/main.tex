@@ -127,6 +127,63 @@ Session-based RS phù hợp khi: người dùng ẩn danh, phiên ngắn, cần 
 \end{alertblock}
 \end{frame}
 
+% SLIDE BỔ SUNG: NẰM GIỮA SLIDE 5 VÀ SLIDE 6
+\begin{frame}{Tổng quan các phương pháp giải quyết bài toán}
+\vspace{0.5cm}
+    \begin{columns}[t]
+        % Cột 1: Phương pháp Thống kê
+        \begin{column}{0.31\textwidth}
+            \small
+            \textbf{1. Phương pháp Thống kê}\\
+            \vspace{0.5cm}
+            \footnotesize
+            Dựa trên tần suất đồng xuất hiện và xác suất điều kiện.\\
+            \vspace{0.25cm}
+            \begin{itemize}
+                \item \textbf{POP}: Gợi ý theo mức độ phổ biến của các sản phẩm.
+                \item \textbf{SKNN}: Tìm phiên lân cận theo độ tương đồng (Trọng tâm của nhóm).
+                \item \textbf{Markov Chains}: Mô hình hóa sự chuyển dịch giữa các sản phẩm dưới dạng xsđk.
+            \end{itemize}
+        \end{column}
+
+        % Cột 2: Kỷ nguyên RNN
+        \begin{column}{0.31\textwidth}
+            \small
+            \textbf{2. Mạng Hồi quy}\\
+            \vspace{0.5cm}
+            \footnotesize
+            Mô hình hóa chuỗi tương tác tuần tự có phụ thuộc thời gian.\\
+            \vspace{0.25cm}
+            \begin{itemize}
+                \item \textbf{GRU4Rec}: Dùng mạng GRU học vector trạng thái ẩn của phiên (Trọng của tâm nhóm).
+                \item \textbf{NARM}: Tích hợp \textit{Attention} phân tách mục đích toàn cục và sở thích tức thời.
+            \end{itemize}
+        \end{column}
+
+        % Cột 3: Đồ thị & Transformer
+        \begin{column}{0.31\textwidth}
+            \small
+            \textbf{3. Mô hình nâng cao}\\
+            \vspace{0.5cm}
+            \footnotesize
+            Mô hình hóa cấu trúc hình học đồ thị hoặc Self-Attention hai chiều.\\
+            \vspace{0.25cm}
+            \begin{itemize}
+                \item \textbf{SR-GNN}: Chuyển phiên thành đồ thị, dùng GNN học quan hệ đan xen.
+                \item \textbf{BERT4Rec}: Sử dụng Transformer để song song hóa, nắm bắt ngữ cảnh.
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+    \vspace{1.2cm}
+    \begin{center}
+        \begin{minipage}{0.95\textwidth}
+            \centering
+            \tiny \textcolor{gray}{Tiến trình tiến hóa: Heuristic/Statistical $\longrightarrow$ Recurrent Neural Networks $\longrightarrow$ Graph/Self-Attention Mechanisms.}
+        \end{minipage}
+    \end{center}
+\end{frame}
+
 % ============================================================
 % PHẦN 2: DỮ LIỆU
 % ============================================================
@@ -271,6 +328,40 @@ Output: Top-N recommended items
 \end{block}
 \small
 \textbf{Complexity:} $O(|\mathcal{S}| \times |S_q|)$ -- dùng inverted index để tăng tốc.
+\end{frame}
+
+% SLIDE BỔ SUNG: NẰM GIỮA SLIDE 10 VÀ SLIDE 11
+\begin{frame}{Tối ưu hóa SKNN: Kỹ thuật Inverted Index}
+    \textbf{1. Vấn đề thắt cổ chai tính toán}\\
+    \vspace{0.15cm}
+    \small
+    Độ phức tạp gốc của SKNN là $O(|\mathcal{S}| \times |S_q|)$. Nếu hệ thống có hàng triệu phiên lịch sử $\mathcal{S}$, việc duyệt tuần tự để so sánh với phiên hiện tại $S_q$ sẽ làm hệ thống tê liệt, không thể đáp ứng thời gian thực.
+    \vspace{0.15cm}
+    \normalsize
+    \textbf{2. Giải pháp: Chỉ mục đảo (Inverted Index)}\\
+    \vspace{0.15cm}
+    \small
+    Thay vì lưu trữ xuôi chiều \textit{(Phiên $\rightarrow$ Sản phẩm)}, ta xây dựng một từ điển ngược: \textbf{\textit{Sản phẩm $\rightarrow$ Danh sách các phiên chứa nó}}. Khi có phiên truy vấn, thuật toán chỉ cần gọi ra các phiên lịch sử có chứa ít nhất 1 sản phẩm trùng khớp.
+
+    \vspace{0.15cm}
+    \normalsize
+    \textbf{3. Minh họa cấu trúc từ điển ngược}\\
+    \vspace{0.15cm}
+    \small
+    \centering
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Sản phẩm (Item)} & \textbf{Danh sách các phiên lịch sử chứa Item} \\
+        \midrule
+        Item A & $\{S_1, S_5, S_{102}, S_{890}\}$ \\
+        Item B & $\{S_2, S_5\}$ \\
+        Item C & $\{S_1, S_3, S_4, S_{102}\}$ \\
+        \bottomrule
+    \end{tabular}
+
+    \vspace{0.1cm}
+    \flushleft
+    \textbf{Hiệu quả:} Giảm không gian tìm kiếm từ hàng triệu phiên xuống chỉ còn vài trăm phiên ứng viên, giúp SKNN đạt tốc độ phản hồi chỉ vài mili-giây.
 \end{frame}
 
 \begin{frame}{SKNN -- Ví dụ tính tay}
@@ -580,6 +671,39 @@ Batch size: 256
 \end{block}
 \end{column}
 \end{columns}
+\end{frame}
+
+% SLIDE BỔ SUNG: NẰM GIỮA SLIDE 22 VÀ SLIDE 23
+\begin{frame}{So sánh với các thí nghiệm tương tự}
+    \vspace{0.5cm}
+    \centering
+    \scriptsize % Hạ font size một chút để bảng cân đối hơn trên màn hình beamer
+    \begin{tabular}{lp{2.8cm}p{2.3cm}p{3.3cm}}
+        \toprule
+        \textbf{Tiêu chí so sánh} & \textbf{Thí nghiệm của Nhóm} & \textbf{Tham chiếu 1} & \textbf{Tham chiếu 2} \\
+        \midrule
+        \textbf{Tập dữ liệu} & Yoochoose(Mẫu 1/64) & Diginetica & Yoochoose(Gốc 1/1) \\
+        \textbf{Nguồn / Tác giả} & TN thực tế (nhóm) & VD minh họa (cô) & Hidasi et al. (2016) \\
+        \textbf{Số phiên Train} & 108,263 & 164,401 & 7,966,257 \\
+        \textbf{Số sản phẩm (Items)} & 10,435 & 43,097 & 37,483 \\
+        \midrule
+        \textbf{Recall@20} & & & \\
+        -- Popularity Baseline & 1.87\% & 28.41\% & 0.50\% \\
+        -- \textbf{SKNN (k=500)} & \textbf{29.52\%} & 51.23\% & 50.65\% (Item-KNN) \\
+        -- GRU4Rec & 27.96\% (10 epochs) & \textbf{58.34\%}(5 epochs) & \textbf{- - -} \\
+        \midrule
+        \textbf{MRR@20} & & & \\
+        -- Popularity Baseline & 0.0041 & 0.1023 & 0.0012 \\
+        -- \textbf{SKNN (k=500)} & \textbf{0.1349} & 0.2187 & 0.2048 (Item-KNN) \\
+        -- GRU4Rec & 0.1262 & \textbf{0.2563} & \textbf{- - -} \\
+        \bottomrule
+    \end{tabular}
+
+    \vspace{0.3cm}
+    \flushleft
+    \tiny % Thu nhỏ phần nhận xét để không đẩy slide bị tràn chiều dọc
+    \textbf{Lưu ý:} 
+    Các tham chiếu chỉ mang tính chất tham khảo do chưa so sánh đúng mô hình, tập dữ liệu
 \end{frame}
 
 % ============================================================
