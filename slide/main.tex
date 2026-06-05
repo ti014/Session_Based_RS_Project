@@ -14,6 +14,8 @@
 \usepackage{amsmath}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc}
 \usepackage{hyperref}
 
 % === Code style ===
@@ -175,7 +177,7 @@ Session-based RS phù hợp khi: người dùng ẩn danh, phiên ngắn, cần 
         \end{column}
     \end{columns}
 
-    \vspace{1.2cm}
+    \vspace{0.45cm}
     \begin{center}
         \begin{minipage}{0.95\textwidth}
             \centering
@@ -309,6 +311,8 @@ $\mathbb{1}[i \in S_n] = 1$ nếu item $i$ có trong phiên $S_n$, ngược lạ
 \end{frame}
 
 \begin{frame}[fragile]{SKNN -- Mã giả thuật toán}
+\vspace{-0.2cm}
+\scriptsize
 \begin{block}{Algorithm 1: SKNN Prediction}
 \begin{verbatim}
 Input:  Sq (current session), S (history sessions), K, N
@@ -332,22 +336,21 @@ Output: Top-N recommended items
 
 % SLIDE BỔ SUNG: NẰM GIỮA SLIDE 10 VÀ SLIDE 11
 \begin{frame}{Tối ưu hóa SKNN: Kỹ thuật Inverted Index}
+    \vspace{-0.25cm}
+    \footnotesize
     \textbf{1. Vấn đề thắt cổ chai tính toán}\\
-    \vspace{0.15cm}
-    \small
+    \vspace{0.05cm}
     Độ phức tạp gốc của SKNN là $O(|\mathcal{S}| \times |S_q|)$. Nếu hệ thống có hàng triệu phiên lịch sử $\mathcal{S}$, việc duyệt tuần tự để so sánh với phiên hiện tại $S_q$ sẽ làm hệ thống tê liệt, không thể đáp ứng thời gian thực.
-    \vspace{0.15cm}
-    \normalsize
+
+    \vspace{0.1cm}
     \textbf{2. Giải pháp: Chỉ mục đảo (Inverted Index)}\\
-    \vspace{0.15cm}
-    \small
+    \vspace{0.05cm}
     Thay vì lưu trữ xuôi chiều \textit{(Phiên $\rightarrow$ Sản phẩm)}, ta xây dựng một từ điển ngược: \textbf{\textit{Sản phẩm $\rightarrow$ Danh sách các phiên chứa nó}}. Khi có phiên truy vấn, thuật toán chỉ cần gọi ra các phiên lịch sử có chứa ít nhất 1 sản phẩm trùng khớp.
 
-    \vspace{0.15cm}
-    \normalsize
+    \vspace{0.1cm}
     \textbf{3. Minh họa cấu trúc từ điển ngược}\\
-    \vspace{0.15cm}
-    \small
+    \vspace{0.05cm}
+    \scriptsize
     \centering
     \begin{tabular}{ll}
         \toprule
@@ -429,6 +432,70 @@ $W_o \in \mathbb{R}^{H \times M}$ & ma trận output \\
 $$i_t \xrightarrow{\text{Embed}} e_{i_t} \xrightarrow{\text{GRU}} h_t \xrightarrow{\text{Linear}} \hat{y}_t \in \mathbb{R}^M \xrightarrow{\text{softmax}} P(i_{t+1})$$
 \end{frame}
 
+\begin{frame}{GRU4Rec -- Minh họa kiến trúc}
+\vspace{-0.25cm}
+\centering
+\begin{tikzpicture}[
+    node distance=0.45cm and 0.35cm,
+    item/.style={rectangle, rounded corners, draw=blue!70!black, fill=blue!8, minimum width=0.9cm, minimum height=0.55cm, font=\scriptsize},
+    emb/.style={rectangle, draw=green!60!black, fill=green!8, minimum width=0.95cm, minimum height=0.55cm, font=\scriptsize},
+    gru/.style={rectangle, rounded corners, draw=orange!80!black, fill=orange!10, minimum width=1.1cm, minimum height=0.75cm, font=\bfseries\scriptsize},
+    outbox/.style={rectangle, rounded corners, draw=red!70!black, fill=red!8, text width=1.55cm, align=center, minimum height=0.65cm, font=\scriptsize},
+    arrow/.style={-{Stealth[scale=1.0]}, thick, draw=blue!70!black}
+]
+    % Chuỗi item đầu vào
+    \node[item] (i1) {$i_1$};
+    \node[item, right=0.35cm of i1] (i2) {$i_2$};
+    \node[item, right=0.35cm of i2] (i3) {$i_3$};
+    \node[item, right=0.35cm of i3] (it) {$i_t$};
+    \node[font=\scriptsize, above=0.1cm of i2] {Chuỗi click trong session};
+
+    % Embedding
+    \node[emb, below=0.55cm of i1] (e1) {$e_{i_1}$};
+    \node[emb, below=0.55cm of i2] (e2) {$e_{i_2}$};
+    \node[emb, below=0.55cm of i3] (e3) {$e_{i_3}$};
+    \node[emb, below=0.55cm of it] (et) {$e_{i_t}$};
+    \node[font=\tiny, left=0.25cm of e1] {Embedding};
+
+    % GRU cells
+    \node[gru, below=0.6cm of e1] (g1) {GRU};
+    \node[gru, below=0.6cm of e2] (g2) {GRU};
+    \node[gru, below=0.6cm of e3] (g3) {GRU};
+    \node[gru, below=0.6cm of et] (gt) {GRU};
+    \node[font=\tiny, left=0.25cm of g1] {Hidden state};
+
+    % Output layers
+    \node[outbox, right=0.7cm of gt] (lin) {Linear\\$W_o h_t+b_o$};
+    \node[outbox, right=0.45cm of lin] (soft) {Softmax\\$P(i_{t+1})$};
+    \node[outbox, right=0.45cm of soft] (topn) {Top-N\\gợi ý};
+
+    % Arrows input -> embedding -> GRU
+    \foreach \x/\y in {i1/e1,i2/e2,i3/e3,it/et} {
+        \path[arrow] (\x) -- (\y);
+    }
+    \foreach \x/\y in {e1/g1,e2/g2,e3/g3,et/gt} {
+        \path[arrow] (\x) -- (\y);
+    }
+
+    % Recurrent arrows
+    \path[arrow] (g1) -- node[above, font=\tiny] {$h_1$} (g2);
+    \path[arrow] (g2) -- node[above, font=\tiny] {$h_2$} (g3);
+    \path[arrow, dashed] (g3) -- node[above, font=\tiny] {$\cdots$} (gt);
+
+    % Prediction arrows
+    \path[arrow] (gt) -- node[above, font=\tiny] {$h_t$} (lin);
+    \path[arrow] (lin) -- (soft);
+    \path[arrow] (soft) -- (topn);
+\end{tikzpicture}
+
+\vspace{0.15cm}
+\footnotesize
+\begin{itemize}
+    \item GRU cập nhật trạng thái ẩn $h_t$ theo thứ tự click trong phiên.
+    \item Hidden state cuối được đưa qua Linear + Softmax để xếp hạng item tiếp theo.
+\end{itemize}
+\end{frame}
+
 \begin{frame}{GRU -- Công thức chi tiết}
 Tại mỗi bước $t$, nhận input $x_t = e_{i_t}$ và hidden state $h_{t-1}$:
 
@@ -496,6 +563,8 @@ P(i_{t+1} = j \;|\; S_{1:t}) = \frac{\exp(\hat{y}_t[j])}{\sum_{k=1}^{M} \exp(\ha
 \end{frame}
 
 \begin{frame}[fragile]{GRU4Rec -- Mã giả thuật toán}
+\vspace{-0.2cm}
+\scriptsize
 \begin{block}{Algorithm 2: GRU4Rec Training}
 \begin{verbatim}
 Input:  sessions S, learning rate eta, epochs E
@@ -521,6 +590,8 @@ Output: model parameters theta
 \end{frame}
 
 \begin{frame}[fragile]{GRU4Rec -- Mã giả Prediction}
+\vspace{-0.25cm}
+\scriptsize
 \begin{block}{Algorithm 3: GRU4Rec Inference}
 \begin{verbatim}
 Input:  Sq = [i1,...,it], trained model, Top-N
@@ -550,6 +621,55 @@ Output: N item khuyen nghi
 % ============================================================
 \section{Kết quả thí nghiệm}
 
+% Slide : So sánh SKNN vs GRU4Rec
+\begin{frame}{So sánh ưu và nhược điểm: SKNN vs GRU4Rec}
+    \vspace{-0.35cm}
+    \begin{columns}[t] % Căn đỉnh (top) cho cả 2 cột
+
+        % Cột 1: SKNN
+        \begin{column}{0.48\textwidth}
+            \setbeamercolor{block title}{bg=blue!70!black, fg=white}
+            \setbeamercolor{block body}{bg=blue!5!white}
+            \begin{block}{\textbf{SKNN} (Memory-based)}
+                \footnotesize
+                \textbf{\color{green!50!black}{Ưu điểm:}}
+                \begin{itemize}
+                    \item \textbf{Đơn giản \& Minh bạch:} Dễ giải thích kết quả gợi ý thông qua các hàng xóm tương tự.
+                    \item \textbf{Chi phí thấp:} Triển khai nhanh, không cần huấn luyện phức tạp và không đòi hỏi phần cứng mạnh (GPU).
+                \end{itemize}
+
+                \vspace{0.05cm}
+                \textbf{\color{red!70!black}{Nhược điểm:}}
+                \begin{itemize}
+                    \item \textbf{Độ trễ khi Inference:} Tốn chi phí tính toán khi dự đoán vì phải quét lại tập dữ liệu lịch sử để tìm độ tương tự.
+                \end{itemize}
+            \end{block}
+        \end{column}
+
+        % Cột 2: GRU4Rec
+        \begin{column}{0.48\textwidth}
+            \setbeamercolor{block title}{bg=orange!80!black, fg=white}
+            \setbeamercolor{block body}{bg=orange!5!white}
+            \begin{block}{\textbf{GRU4Rec} (Deep Learning)}
+                \footnotesize
+                \textbf{\color{green!50!black}{Ưu điểm:}}
+                \begin{itemize}
+                    \item \textbf{Học chuỗi tinh tế:} Học được biểu diễn ẩn và bắt được thứ tự hành vi click theo thời gian một cách chính xác.
+                    \item \textbf{Inference nhanh:} Tốc độ dự đoán cực kỳ nhanh khi triển khai thực tế (chỉ chạy qua mô hình đã tối ưu).
+                \end{itemize}
+
+                \vspace{0.03cm}
+                \textbf{\color{red!70!black}{Nhược điểm:}}
+                \begin{itemize}
+                    \item \textbf{Khối lượng tính toán:} Cần nhiều thời gian/epoch và lượng lớn dữ liệu để huấn luyện.
+                    \item \textbf{Tốn tài nguyên:} Đòi hỏi thiết lập hạ tầng phần cứng mạnh (GPU).
+                \end{itemize}
+            \end{block}
+        \end{column}
+
+    \end{columns}
+\end{frame}
+
 \begin{frame}{Metrics đánh giá}
 \begin{table}
 \centering
@@ -572,6 +692,61 @@ MRR@20 & $\frac{1}{N}\sum \frac{1}{\text{rank}_i}$ & Trung bình nghịch đảo
     \item Kiểm tra: $D$ có nằm trong Top-20 gợi ý không?
 \end{itemize}
 \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Minh họa chiến lược đánh giá Leave-one-out (LOO)}
+    \vspace{-0.35cm}
+
+    % Sơ đồ tư duy trực quan luồng dữ liệu LOO bằng TikZ
+    \begin{center}
+    \begin{tikzpicture}[
+        node distance = 0.75cm and 0.4cm,
+        arrow/.style = {-{Stealth[scale=1.0]}, line width=1.2pt, draw=blue!70!black},
+        % ĐÃ SỬA: Thay 'width' thành 'minimum width' và thêm 'align=center' để xuống dòng chuẩn
+        block/.style = {rectangle, rounded corners, draw=blue!80!black, fill=blue!5, minimum width=2.5cm, text centered, font=\small, minimum height=0.6cm, align=center},
+        highlight/.style = {rectangle, rounded corners, draw=orange!80!black, fill=orange!10, font=\bfseries\small, minimum height=0.6cm, align=center}
+    ]
+        % Khởi tạo chuỗi phiên gốc
+        \node[block, minimum width=5cm] (session) {Phiên lịch sử gốc: \textbf{[A, B, C, D]}};
+
+        % Tách luồng dữ liệu làm Input và Ground Truth
+        \node[block, below left=0.8cm and -1.0cm of session, minimum width=2.8cm] (input) {Input mô hình:\\\textbf{[A, B, C]}};
+        \node[highlight, below right=0.8cm and -1.0cm of session, minimum width=2.8cm] (gt) {Ground Truth:\\Item \textbf{D} (Ẩn đi)};
+
+        % Kết nối từ phiên gốc xuống cấu trúc tách
+        \path [arrow] (session.south) -- ++(0,-0.3) -| (input.north);
+        \path [arrow] (session.south) -- ++(0,-0.3) -| (gt.north);
+
+        % Khối Mô hình xử lý
+        \node[block, below=0.65cm of input, fill=gray!10, draw=gray!80, minimum width=2.8cm] (model) {Mô hình\\(GRU4Rec/SKNN)};
+        \path [arrow] (input.south) -- (model.north);
+
+        % Khối Kết quả đầu ra Top-20
+        \node[block, below=0.65cm of model, minimum width=3.5cm, text width=3.2cm, align=left] (output) {Top-20 Khuyến nghị:\\1. Item X\\2. Item Y\\\textbf{3. Item D} $\star$\\...};
+        \path [arrow] (model.south) -- (output.north);
+
+        % Kết nối so khớp từ Ground Truth sang Output để tính Metrics
+        % ĐÃ SỬA: Xóa khoảng trắng lỗi ở cụm từ khóa toán học tọa độ $(output.north)...
+        \path [arrow, draw=orange, dashed] (gt.south) |- ($(output.north)!0.5!(output.center)$);
+
+    \end{tikzpicture}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Cơ chế tính toán Metrics trên ví dụ thực tế}
+
+    \begin{itemize}
+        \item \textbf{\color{green!60!black}{Recall@20 (Độ phủ):}} Do đáp án chính xác (Item \textbf{D}) có xuất hiện trong danh sách Top-20 khuyến nghị đầu ra $\rightarrow$ Phiên này được ghi nhận là \textbf{1 Hit} (Thành công).
+
+        \item \textbf{\color{orange!80!black}{MRR@20 (Thứ hạng nghịch đảo):}} Không chỉ cần đoán trúng, mô hình cần đưa đáp án lên vị trí càng cao càng tốt.
+        $$\text{Vị trí xuất hiện của D} = 3 \implies \text{Điểm số thu về } (RR) = \frac{1}{3} \approx 0.333$$
+    \end{itemize}
+
+    \vspace{0.05cm}
+    \begin{center}
+        \footnotesize\color{gray}
+        \textit{$\Rightarrow$ Điểm số chung cuộc của mô hình là trung bình cộng Recall và MRR của tất cả các phiên kiểm thử.}
+    \end{center}
 \end{frame}
 
 \begin{frame}{Kết quả trên Yoochoose (1/64)}
@@ -712,6 +887,7 @@ Batch size: 256
 \section{Kết luận}
 
 \begin{frame}{Tổng kết}
+\small
 \begin{table}
 \centering
 \begin{tabular}{lp{8cm}}
@@ -727,7 +903,8 @@ Kết quả & Popularity 1.87\% $\rightarrow$ GRU4Rec 28.0\% $\rightarrow$ SKNN 
 \end{tabular}
 \end{table}
 
-\vspace{0.5cm}
+\vspace{0.15cm}
+\small
 \begin{block}{Bài học thực nghiệm}
 Nên bắt đầu với Popularity Baseline và SKNN. Nếu SKNN chưa vượt rõ Popularity, cần kiểm tra lại dữ liệu và protocol trước khi đầu tư vào mô hình học sâu.
 \end{block}
@@ -747,6 +924,57 @@ Tiếng Việt & Dataset từ Tiki/Shopee & $\star\star\star$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+\end{frame}
+
+\begin{frame}{Lộ trình phát triển các mô hình Session-based nâng cao}
+    \vspace{-0.1cm}
+
+    % Sơ đồ Timeline dạng trục ngang bằng TikZ
+    \begin{center}
+    \begin{tikzpicture}[
+        node distance = 0.5cm,
+        arrow/.style = {-{Stealth[scale=1.2]}, line width=1.5pt, draw=blue!60!black},
+        box/.style = {rectangle, rounded corners, minimum width=2.2cm, minimum height=0.8cm, text centered, draw=blue!70!black, fill=blue!10, font=\bfseries\small}
+    ]
+        % Khởi tạo các Node mô hình trên một trục ngang
+        \node[box, fill=red!10, draw=red!70!black] (gru) {GRU4Rec};
+        \node[box, right=1.0cm of gru] (narm) {NARM};
+        \node[box, right=1.0cm of narm] (bert) {BERT4Rec};
+        \node[box, right=1.0cm of bert] (srgnn) {SR-GNN};
+
+        % Vẽ mũi tên kết nối
+        \path [arrow] (gru) -- (narm);
+        \path [arrow] (narm) -- (bert);
+        \path [arrow] (bert) -- (srgnn);
+
+        % Chú thích ngắn dưới các mũi tên đại diện cho bước chuyển đổi công nghệ
+        \node[font=\tiny\itshape, below=0.1cm of $(gru)!0.5!(narm)$] {+ Attention};
+        \node[font=\tiny\itshape, below=0.1cm of $(narm)!0.5!(bert)$] {+ Transformer};
+        \node[font=\tiny\itshape, below=0.1cm of $(bert)!0.5!(srgnn)$] {+ Graph Neural};
+    \end{tikzpicture}
+    \end{center}
+
+    \vspace{-0.2cm}
+    \small
+    \begin{itemize}
+        \item \textbf{\color{red!80!black}{Hạn chế của GRU4Rec (Baseline):}}
+        Chỉ học chuỗi hành vi một chiều ($\rightarrow$) và coi trọng số (tầm quan trọng) các lượt click trong một phiên là ngang nhau.
+
+        \item \textbf{\color{blue!80!black}{NARM (Khắc phục tính đồng đều):}}
+        Tích hợp cơ chế \textbf{Attention} vào mạng RNN (GRU). Giúp mô hình tự động nhận diện và "tập trung" trọng số vào các click cốt lõi thể hiện ý định chính của phiên.
+
+        \item \textbf{\color{blue!80!black}{BERT4Rec (Khắc phục tính một chiều):}}
+        Ứng dụng kiến trúc \textbf{Transformer (Bidirectional)}. Cho phép học ngữ cảnh hai chiều đồng thời, thay vì chỉ phụ thuộc vào các hành vi đứng trước.
+
+        \item \textbf{\color{blue!80!black}{SR-GNN (Khắc phục cấu trúc tuần tự đơn điệu):}}
+        Chuyển đổi chuỗi phiên thành cấu trúc \textbf{Đồ thị (Graph)}. Khai thác sâu các mối quan hệ chuyển tiếp phức tạp và phi tuyến tính giữa các item trong và giữa các phiên.
+    \end{itemize}
+
+    \vspace{0.1cm}
+    \begin{center}
+        \footnotesize\color{gray}
+        \textit{$\Rightarrow$ Việc chuyển dịch từ học tuần tự sang học ngữ cảnh hai chiều và cấu trúc đồ thị là xu hướng tất yếu giúp tối ưu hóa độ chính xác gợi ý.}
+    \end{center}
 \end{frame}
 
 \begin{frame}{Tài liệu tham khảo}
