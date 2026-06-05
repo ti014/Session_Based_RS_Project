@@ -59,3 +59,7 @@ data/*.pkl
 *.rar
 *.7z
 *_backup*/
+
+# Kịch bản nói cá nhân — không công khai
+slide/*kich-ban*.md
+slide/handout-kich-ban-noi.md
