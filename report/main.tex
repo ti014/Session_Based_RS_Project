@@ -657,6 +657,8 @@ Khác với chia ngẫu nhiên (random split), chia theo thời gian đảm bả
 
 Nếu dùng random split, mô hình có thể ``nhìn thấy'' thông tin từ tương lai (data leakage), dẫn đến đánh giá quá lạc quan.
 
+Riêng với GRU4Rec, chúng tôi tách thêm một tập \textbf{validation} bằng cách cắt phần \emph{muộn nhất} của training set (theo cùng nguyên tắc thời gian) để phục vụ early stopping. Như vậy thứ tự thời gian luôn là train-inner $<$ validation $<$ test. Popularity và SKNN không cần validation nên vẫn dùng toàn bộ training set; điều này giữ cho kết quả của chúng và tập test hoàn toàn không đổi.
+
 \subsubsection{Quy trình tiền xử lý tổng hợp}
 
 Quy trình tiền xử lý được tóm tắt trong Thuật toán \ref{alg:preprocess}.
@@ -1372,7 +1374,9 @@ Số item còn lại (vocab, gồm padding) & -- & 10,435 \\
 \midrule
 \multicolumn{3}{c}{\textit{Chia train/test theo thời gian (90/10):}} \\
 \midrule
-Số phiên train & -- & 108,263 \\
+Số phiên train-full (Popularity/SKNN) & -- & 108,263 \\
+\quad train-inner (GRU4Rec) & -- & 96,234 \\
+\quad validation (GRU4Rec) & -- & 12,029 \\
 Số phiên test & -- & 8,004 \\
 \bottomrule
 \end{tabular}
@@ -1401,7 +1405,7 @@ Do dataset gốc rất lớn (33 triệu click, 9.2 triệu session), việc ch�
 & Similarity metric & Cosine (binary) \\
 & Top-N & 20 \\
 \midrule
-\multirow{8}{*}{GRU4Rec} & Embedding size ($d$) & 64 \\
+\multirow{11}{*}{GRU4Rec} & Embedding size ($d$) & 64 \\
 & Hidden size ($H$) & 128 \\
 & Số lớp GRU & 1 \\
 & Dropout & 0.25 \\
@@ -1409,7 +1413,9 @@ Do dataset gốc rất lớn (33 triệu click, 9.2 triệu session), việc ch�
 & Learning rate ($\eta$) & 0.001 \\
 & Weight decay & $10^{-5}$ \\
 & Batch size & 256 \\
-& Số epoch & 10 \\
+& Số epoch tối đa & 40 \\
+& Early stopping & patience 2 (val Recall@20) \\
+& Best epoch (đã chọn) & 19 \\
 & Gradient clipping & 5.0 \\
 & Loss function & Cross-Entropy \\
 & Max sequence length & 20 \\
@@ -1423,9 +1429,9 @@ Do dataset gốc rất lớn (33 triệu click, 9.2 triệu session), việc ch�
     \item \textbf{Top-N = 20:} Chọn Recall@20 và MRR@20 vì đây là cấu hình đánh giá thường gặp trong các nghiên cứu GRU4Rec và đánh giá thuật toán session-based \cite{hidasi2016,ludewig2018}. Top-20 cũng phù hợp với giao diện gợi ý thực tế, nơi hệ thống thường hiển thị một danh sách ngắn thay vì toàn bộ catalog.
     \item \textbf{Mẫu dữ liệu 1/64:} Yoochoose đầy đủ có hàng chục triệu click, nên mẫu 1/64 giúp giảm chi phí xử lý trong phạm vi tài nguyên hiện có và vẫn đủ lớn để so sánh tương đối giữa các mô hình. Kết luận trong báo cáo vì vậy tập trung vào thứ hạng mô hình trong cùng cấu hình, không khẳng định đây là kết quả đại diện cho toàn bộ dataset.
     \item \textbf{K của SKNN:} Dải $K \in \{50,100,200,500\}$ được chọn để bao phủ từ ít hàng xóm đến nhiều hàng xóm. Kết quả ở Mục \ref{fig:recall_k} cho thấy Recall tăng rồi bão hòa; $K=500$ được dùng làm cấu hình cuối vì đạt Recall cao nhất, dù mức chênh lệch so với $K=200$ là không đáng kể.
-    \item \textbf{Embedding size 64 và hidden size 128:} Đây là cấu hình vừa phải cho GRU4Rec: đủ năng lực học biểu diễn item và trạng thái phiên, nhưng không làm số tham số quá lớn so với mẫu 1/64. Với $M=10{,}435$, mô hình có khoảng 2.09 triệu tham số, phù hợp mục tiêu thực nghiệm minh họa.
+    \item \textbf{Embedding size 64 và hidden size 128:} Đây là cấu hình vừa phải cho GRU4Rec: đủ năng lực học biểu diễn item và trạng thái phiên, nhưng không làm số tham số quá lớn so với mẫu 1/64. Với vocab $M=10{,}234$ (xây trên tập train-inner), mô hình có khoảng 2.05 triệu tham số, phù hợp mục tiêu thực nghiệm minh họa.
     \item \textbf{Learning rate 0.001, Adam, batch size 256:} Adam với learning rate $10^{-3}$ là lựa chọn phù hợp cho mô hình GRU quy mô nhỏ; batch size 256 cân bằng giữa tốc độ huấn luyện và bộ nhớ. Weight decay $10^{-5}$ và dropout 0.25 hỗ trợ regularization trong khi vẫn giữ kiến trúc gọn.
-    \item \textbf{10 epoch:} Số epoch được giới hạn để thời gian chạy hợp lý. Đường cong loss vẫn giảm ở epoch 10, nên báo cáo không xem GRU4Rec là đã hội tụ hoàn toàn; đây là lý do phần thảo luận nhấn mạnh GRU4Rec có thể cải thiện thêm nếu tăng epoch và tinh chỉnh tham số sâu hơn.
+    \item \textbf{Số epoch và early stopping:} Thay vì cố định số epoch, chúng tôi tách một tập validation từ phần cuối (muộn nhất) của tập train và dùng \emph{early stopping}: mỗi epoch đánh giá Recall@20 trên validation, lưu lại trọng số tốt nhất và dừng huấn luyện nếu chỉ số này không cải thiện sau 2 epoch (patience = 2). Số epoch tối đa đặt là 40. Trong thực nghiệm, Recall@20 trên validation đạt đỉnh tại epoch 19 và quá trình dừng ở epoch 21; mô hình cuối dùng trọng số của epoch 19. Cách làm này chọn số epoch một cách hệ thống và cho ước lượng hiệu năng test không thiên vị (không ``nhìn'' vào test để chọn epoch).
 \end{itemize}
 
 \subsubsection{Phần cứng và phần mềm}
@@ -1486,7 +1492,9 @@ Quy trình tiền xử lý được thực hiện theo các bước sau, với s
 
     \item \textbf{Lọc item hiếm (chỉ trên train):} Đếm tần suất mỗi item \textbf{chỉ trên tập train}, loại bỏ item xuất hiện dưới 5 lần (giữ 10,449 item). Việc chỉ dùng train để quyết định giữ item nào đảm bảo \emph{không nhìn vào test} -- một nguồn data leakage tinh vi thường bị bỏ qua.
 
-    \item \textbf{Lọc độ dài phiên $[2, 20]$:} Sau khi bỏ item hiếm khỏi mọi phiên, giữ lại các phiên có từ 2 đến 20 item. Loại phiên 1 item (không tạo được cặp input--label) và phiên quá dài $>20$ item (có thể là bot/outlier). Kết quả cuối: train 108,263 phiên, test 8,004 phiên, vocab 10,435 (gồm token padding).
+    \item \textbf{Lọc độ dài phiên $[2, 20]$:} Sau khi bỏ item hiếm khỏi mọi phiên, giữ lại các phiên có từ 2 đến 20 item. Loại phiên 1 item (không tạo được cặp input--label) và phiên quá dài $>20$ item (có thể là bot/outlier). Kết quả cuối: train-full 108,263 phiên, test 8,004 phiên.
+
+    \item \textbf{Tách validation cho GRU4Rec:} Từ tập train-full (108,263 phiên), cắt $1/9$ phần \emph{muộn nhất} theo thời gian làm validation (12,029 phiên), phần còn lại làm train-inner (96,234 phiên). Popularity và SKNN vẫn dùng train-full nên kết quả của chúng không đổi; chỉ GRU4Rec huấn luyện trên train-inner và dùng validation cho early stopping. Vì vocab của GRU4Rec được xây trên train-inner nên kích thước từ vựng là 10,234 (gồm token padding).
 \end{enumerate}
 
 \subsection{Giao thức đánh giá và tính hợp lệ của kết quả}
@@ -1506,7 +1514,7 @@ Quy trình tiền xử lý được thực hiện theo các bước sau, với s
     \item \textbf{Chỉ dùng 1/64 dữ liệu:} ít hơn 64 lần số phiên huấn luyện $\rightarrow$ inverted index của SKNN thưa hơn và GRU4Rec có ít dữ liệu hơn để học embedding, nên Recall tuyệt đối giảm theo.
     \item \textbf{Chia train/test theo thời gian (không phải ngẫu nhiên):} tập test gồm các phiên \emph{muộn nhất}, chứa nhiều item/hành vi chưa từng thấy trong train. Đây là kịch bản khó hơn nhưng \emph{trung thực} hơn so với chia ngẫu nhiên -- vốn gây rò rỉ thông tin tương lai (data leakage) và thổi phồng kết quả.
 \end{enumerate}
-Điều quan trọng về mặt học thuật là \emph{thứ hạng tương đối} giữa các mô hình (Popularity $\lll$ GRU4Rec $\lesssim$ SKNN), và thứ hạng này nhất quán với tài liệu \cite{ludewig2018}. Mọi con số trong báo cáo được sinh tự động từ một lần chạy pipeline (\texttt{run\_all.py}) và lưu trong \texttt{output/all\_results.pkl}; không có số nào được điền tay.
+Điều quan trọng về mặt học thuật là \emph{thứ hạng tương đối} giữa các mô hình (Popularity $\lll$ GRU4Rec $<$ SKNN), và thứ hạng này nhất quán với tài liệu \cite{ludewig2018}. Mọi con số trong báo cáo được sinh tự động từ một lần chạy pipeline (\texttt{run\_all.py}) và lưu trong \texttt{output/all\_results.pkl}; không có số nào được điền tay.
 
 \subsection{Kết quả mô hình Popularity Baseline}
 
@@ -1551,32 +1559,33 @@ SKNN (K=500) & \textbf{0.2952} (29.52\%) & \textbf{0.1349} \\
 \textbf{Nhận xét:}
 \begin{itemize}
     \item Recall@20 = 29.52\%: Trong gần 1/3 trường hợp, item đúng nằm trong Top-20 gợi ý. Đây là cải thiện \textbf{+27.65 điểm} so với Popularity Baseline.
-    \item MRR@20 = 0.1349: Trung bình, item đúng nằm ở khoảng vị trí thứ 7 ($1/0.1349 \approx 7.4$) trong danh sách Top-20.
+    \item MRR@20 = 0.1350: Trung bình, item đúng nằm ở khoảng vị trí thứ 7 ($1/0.1349 \approx 7.4$) trong danh sách Top-20.
     \item SKNN đạt hiệu quả cao trong cấu hình này dù \textbf{không cần huấn luyện} (training-free), không cần GPU, và có cách triển khai tương đối gọn.
     \item Thời gian inference: khoảng 50--100ms cho mỗi session (với inverted index).
 \end{itemize}
 
-\subsection{Kết quả GRU4Rec (10 epoch)}
+\subsection{Kết quả GRU4Rec (early stopping, best epoch 19/40)}
 
 \begin{table}[H]
 \centering
-\caption{Kết quả GRU4Rec sau 10 epoch huấn luyện}
+\caption{Kết quả GRU4Rec với early stopping (best epoch 19/40)}
 \label{tab:gru4rec_results}
 \begin{tabular}{lcc}
 \toprule
 \textbf{Mô hình} & \textbf{Recall@20} & \textbf{MRR@20} \\
 \midrule
-GRU4Rec (10 epoch) & \textbf{0.2796} (27.96\%) & \textbf{0.1262} \\
+GRU4Rec (best epoch 19/40) & \textbf{0.2287} (22.87\%) & \textbf{0.1043} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \textbf{Nhận xét:}
 \begin{itemize}
-    \item Recall@20 = 27.96\%: Cải thiện \textbf{+26.09 điểm} so với Popularity, nhưng \textbf{thấp hơn SKNN 1.56 điểm}.
-    \item MRR@20 = 0.1262: Thấp hơn SKNN 0.0087 (SKNN xếp hạng item đúng cao hơn nhẹ).
-    \item Trên cấu hình thí nghiệm này (mẫu 1/64, chia theo thời gian, 10 epoch), GRU4Rec \textbf{chưa vượt} SKNN. Kết quả này phù hợp với Ludewig \& Jannach (2018) \cite{ludewig2018}: SKNN là baseline cực mạnh mà nhiều mô hình deep learning khó vượt qua, nhất là khi dữ liệu hạn chế và số epoch còn thấp.
-    \item GRU4Rec vẫn có lợi thế lý thuyết (\textbf{học được thứ tự} click) và có thể cải thiện thêm khi tăng dữ liệu, số epoch hoặc tinh chỉnh siêu tham số -- phân tích chi tiết ở Mục \ref{chap:analysis}.
+    \item Recall@20 = 22.87\%: Cải thiện \textbf{+21.00 điểm} so với Popularity, nhưng \textbf{thấp hơn SKNN 6.65 điểm}.
+    \item MRR@20 = 0.1043: Thấp hơn SKNN 0.0307 (SKNN xếp hạng item đúng cao hơn).
+    \item Số epoch được chọn bằng \textbf{validation + early stopping}: Recall@20 trên validation đạt đỉnh 0.2739 tại epoch 19, quá trình dừng tại epoch 21 (patience = 2). Đây là ước lượng hiệu năng test \emph{không thiên vị}, khác với việc huấn luyện cứng một số epoch rồi nhìn thẳng vào test để chọn.
+    \item Trên cấu hình thí nghiệm này (mẫu 1/64, chia theo thời gian, train-inner ít hơn train-full do tách validation), GRU4Rec \textbf{chưa vượt} SKNN. Kết quả này phù hợp với Ludewig \& Jannach (2018) \cite{ludewig2018}: SKNN là baseline cực mạnh mà nhiều mô hình deep learning khó vượt qua, nhất là khi dữ liệu hạn chế.
+    \item GRU4Rec vẫn có lợi thế lý thuyết (\textbf{học được thứ tự} click) và có thể cải thiện thêm khi tăng dữ liệu hoặc tinh chỉnh siêu tham số -- phân tích chi tiết ở Mục \ref{chap:analysis}.
 \end{itemize}
 
 
@@ -1592,7 +1601,7 @@ GRU4Rec (10 epoch) & \textbf{0.2796} (27.96\%) & \textbf{0.1262} \\
 \toprule
 \textbf{K} & \textbf{Recall@20} \\
 \midrule
-50 & 0.2702 \\
+50 & 0.2704 \\
 100 & 0.2846 \\
 200 & 0.2951 \\
 \textbf{500} & \textbf{0.2952} \\
@@ -1603,7 +1612,7 @@ GRU4Rec (10 epoch) & \textbf{0.2796} (27.96\%) & \textbf{0.1262} \\
 \textbf{Phân tích:}
 
 \begin{enumerate}
-    \item \textbf{K=50:} Chỉ xét 50 phiên tương tự nhất. Một số item phù hợp có thể chưa nhận đủ đóng góp từ các phiên hàng xóm, dẫn đến Recall thấp nhất trong dải thử nghiệm (0.2702).
+    \item \textbf{K=50:} Chỉ xét 50 phiên tương tự nhất. Một số item phù hợp có thể chưa nhận đủ đóng góp từ các phiên hàng xóm, dẫn đến Recall thấp nhất trong dải thử nghiệm (0.2704).
 
     \item \textbf{K=100 và K=200:} Hiệu năng tăng đều so với K=50 (0.2846 rồi 0.2951). Đây là giai đoạn thêm hàng xóm vẫn còn mang lại lợi ích rõ rệt.
 
@@ -1629,35 +1638,34 @@ Hình \ref{fig:recall_k} minh họa xu hướng Recall@20 theo K.
     \item K=200--500 là vùng cân bằng tốt cho dataset này
 \end{itemize}
 
-\subsection{Đường cong loss huấn luyện của GRU4Rec}
+\subsection{Đường cong huấn luyện và early stopping của GRU4Rec}
 
-Hình \ref{fig:loss_curve} thể hiện đường cong loss trong quá trình huấn luyện GRU4Rec qua 10 epoch.
+Hình \ref{fig:loss_curve} thể hiện hai đường cong theo epoch: loss huấn luyện (trên) và Recall@20 trên tập validation (dưới). Vạch đứng đánh dấu \emph{best epoch} (epoch 19) được early stopping chọn.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.75\textwidth]{gru4rec_loss_curve.png}
-\caption{Đường cong loss huấn luyện của GRU4Rec qua 10 epoch. Nguồn: kết quả thực nghiệm của nhóm từ \texttt{output/all\_results.pkl}, trực quan hóa bằng \texttt{src/plots.py}.}
+\caption{Loss huấn luyện và Recall@20 trên validation của GRU4Rec theo epoch; vạch đỏ là best epoch (19) do early stopping chọn. Nguồn: kết quả thực nghiệm của nhóm từ \texttt{output/all\_results.pkl}, trực quan hóa bằng \texttt{src/plots.py}.}
 \label{fig:loss_curve}
 \end{figure}
 
-\textbf{Phân tích đường cong loss:}
+\textbf{Phân tích:}
 
 \begin{enumerate}
-    \item \textbf{Epoch 1--3:} Loss giảm nhanh từ 7.79 (trung bình epoch 1; mức khởi tạo lý thuyết $\ln(10435) \approx 9.25$) xuống 5.69 (epoch 3). Đây là giai đoạn mô hình học được các pattern cơ bản nhất (item phổ biến, co-occurrence đơn giản).
+    \item \textbf{Loss huấn luyện giảm đơn điệu:} từ 7.84 (epoch 1) xuống 3.90 (epoch 21), không bao giờ tăng trở lại. Nếu chỉ nhìn loss train, ta sẽ tưởng rằng cứ huấn luyện thêm là tốt hơn.
 
-    \item \textbf{Epoch 4--7:} Loss tiếp tục giảm nhưng chậm hơn (từ 5.26 xuống 4.62). Mô hình bắt đầu học các pattern phức tạp hơn (sequential dependencies).
+    \item \textbf{Recall@20 trên validation bão hòa:} tăng nhanh ở các epoch đầu (0.106 $\to$ 0.260 trong 10 epoch đầu), sau đó chững lại và \emph{bão hòa} quanh 0.272--0.274 từ epoch 15 trở đi, đạt đỉnh 0.2739 tại epoch 19.
 
-    \item \textbf{Epoch 8--10:} Loss giảm chậm dần (4.51 $\to$ 4.33), chưa hoàn toàn hội tụ -- vẫn còn xu hướng giảm nhẹ.
-    
-    \item \textbf{Không có overfitting rõ ràng:} Loss không tăng trở lại, cho thấy mô hình chưa overfit trên training set. Có thể huấn luyện thêm epoch để cải thiện.
+    \item \textbf{Early stopping kích hoạt:} sau epoch 19, hai epoch tiếp theo (20--21) không vượt được đỉnh nên quá trình dừng tại epoch 21 (patience = 2) và khôi phục trọng số của epoch 19.
+
+    \item \textbf{Bài học:} loss huấn luyện giảm \emph{không} đồng nghĩa chất lượng trên dữ liệu chưa thấy tiếp tục tăng. Đây chính là lý do cần một tập validation độc lập để chọn epoch, thay vì dựa vào loss huấn luyện hay cố định số epoch một cách tùy ý.
 \end{enumerate}
 
-\textbf{Gợi ý cải thiện:}
+\textbf{Gợi ý cải thiện thêm:}
 \begin{itemize}
-    \item Tăng số epoch lên 20--30 để mô hình hội tụ tốt hơn
-    \item Sử dụng learning rate scheduling (giảm lr khi loss bão hòa)
-    \item Tăng hidden size (256 hoặc 512) để tăng capacity
-    \item Thêm early stopping dựa trên validation loss
+    \item Tăng lượng dữ liệu huấn luyện (giảm tỉ lệ lấy mẫu) để mô hình học biểu diễn tốt hơn
+    \item Sử dụng learning rate scheduling (giảm lr khi val bão hòa)
+    \item Tinh chỉnh hidden size, dropout, weight decay qua tìm kiếm siêu tham số trên validation
 \end{itemize}
 
 \newpage
@@ -1682,8 +1690,8 @@ Bảng \ref{tab:final_comparison} tổng hợp kết quả của cả ba mô hì
 \textbf{Mô hình} & \textbf{Recall@20} & \textbf{MRR@20} & \textbf{$\Delta$Recall} & \textbf{Thời gian} & \textbf{GPU} \\
 \midrule
 Popularity Baseline & 0.0187 & 0.0041 & -- & $\sim$5s & Không \\
-SKNN (K=500) & \textbf{0.2952} & \textbf{0.1349} & +0.2765 & $\sim$2s & Không \\
-GRU4Rec (10 epoch) & 0.2796 & 0.1262 & +0.2609 & $\sim$3 phút & Có \\
+SKNN (K=500) & \textbf{0.2952} & \textbf{0.1350} & +0.2765 & $\sim$2s & Không \\
+GRU4Rec (best ep 19/40) & 0.2287 & 0.1043 & +0.2100 & $\sim$25 phút & Có \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1700,8 +1708,8 @@ Hình \ref{fig:comparison} minh họa trực quan sự khác biệt giữa 3 mô
 \textbf{Nhận xét tổng quan:}
 \begin{enumerate}
     \item Cả SKNN và GRU4Rec đều cải thiện rõ so với Popularity Baseline (hơn 26 điểm Recall).
-    \item SKNN cao hơn GRU4Rec một mức nhỏ (+1.56 điểm Recall, +0.0087 MRR) trên cấu hình thí nghiệm này.
-    \item Việc SKNN ngang ngửa hoặc vượt GRU4Rec là kết quả thường gặp, phù hợp với các nghiên cứu trước \cite{ludewig2018, jannach2017}.
+    \item SKNN cao hơn GRU4Rec (+6.65 điểm Recall, +0.0307 MRR) trên cấu hình thí nghiệm này.
+    \item Việc SKNN vượt GRU4Rec là kết quả thường gặp, phù hợp với các nghiên cứu trước \cite{ludewig2018, jannach2017}, nhất là khi dữ liệu hạn chế và mô hình được đánh giá nghiêm ngặt bằng validation thay vì nhìn thẳng vào test.
 \end{enumerate}
 
 \subsection{Phân tích tại sao SKNN vượt Popularity (+27.65 điểm)}
@@ -1749,7 +1757,7 @@ MRR cải thiện mạnh hơn Recall ($\times$32.9 vs $\times$15.8), cho thấy 
 
 \subsection{Phân tích tại sao GRU4Rec chưa vượt SKNN}
 
-Trên cấu hình thí nghiệm này, GRU4Rec thấp hơn SKNN 1.56 điểm Recall. Tuy nhiên, về \emph{lý thuyết} GRU4Rec vẫn có những ưu thế quan trọng mà điều kiện thí nghiệm hạn chế (mẫu 1/64, 10 epoch) chưa cho phép phát huy:
+Trên cấu hình thí nghiệm này, GRU4Rec thấp hơn SKNN 6.65 điểm Recall. Tuy nhiên, về \emph{lý thuyết} GRU4Rec vẫn có những ưu thế quan trọng mà điều kiện thí nghiệm hạn chế (mẫu 1/64, tập train-inner nhỏ hơn do tách validation) chưa cho phép phát huy:
 
 \subsubsection{Học được thứ tự (Sequential patterns)}
 
@@ -1776,9 +1784,9 @@ Có nhiều lý do giải thích tại sao GRU4Rec chưa vượt được SKNN t
 \begin{enumerate}
     \item \textbf{Session ngắn:} Với session trung bình chỉ 3.7 item (trung vị 3), lợi thế ``học thứ tự'' của GRU bị hạn chế. Thứ tự chỉ thực sự quan trọng khi chuỗi đủ dài.
 
-    \item \textbf{Dữ liệu hạn chế:} Chỉ dùng mẫu 1/64 ($\sim$108K phiên train) -- chưa đủ để GRU học tốt embedding cho hơn 10K item. Trên toàn bộ dataset, GRU thường thu hẹp hoặc vượt khoảng cách này.
+    \item \textbf{Dữ liệu hạn chế:} Chỉ dùng mẫu 1/64, và GRU còn huấn luyện trên train-inner ($\sim$96K phiên, ít hơn train-full sau khi tách validation) -- chưa đủ để học tốt embedding cho hơn 10K item. Trên toàn bộ dataset, GRU thường thu hẹp hoặc vượt khoảng cách này.
 
-    \item \textbf{Chưa hội tụ:} GRU4Rec chỉ được huấn luyện 10 epoch, loss vẫn đang giảm (4.41 $\to$ 4.33 ở epoch 9--10), chưa hoàn toàn hội tụ. Với nhiều epoch hơn, kết quả nhiều khả năng cải thiện thêm.
+    \item \textbf{Đã hội tụ trên validation:} Khác với việc chỉ giảm loss, Recall@20 trên validation của GRU4Rec đã \emph{bão hòa} quanh epoch 15--19 (đỉnh 0.2739) rồi không cải thiện thêm, nên early stopping dừng tại epoch 21. Tức là với cấu hình hiện tại, tăng thêm epoch \emph{không} còn giúp ích; muốn cải thiện cần thêm dữ liệu hoặc tinh chỉnh kiến trúc/siêu tham số, không phải chỉ kéo dài huấn luyện.
 
     \item \textbf{SKNN là baseline mạnh:} Như Ludewig \& Jannach (2018) \cite{ludewig2018} đã chỉ ra, các phương pháp neighborhood là mốc so sánh cạnh tranh với nhiều mô hình học sâu, đặc biệt khi item phổ biến lặp lại giữa các phiên gần nhau như trong dữ liệu thương mại điện tử Yoochoose.
 \end{enumerate}
@@ -1886,7 +1894,7 @@ Các kết quả trên nên được đọc trong phạm vi thiết kế thí ng
 
     \item \textbf{Một miền dữ liệu:} Yoochoose là clickstream thương mại điện tử. Kết quả chưa tự động suy rộng sang tin tức, nhạc, giáo dục, hoặc dataset tiếng Việt nếu hành vi phiên khác đáng kể.
 
-    \item \textbf{GRU4Rec mới được huấn luyện ở mức vừa phải:} Mô hình chạy 10 epoch và chưa tune rộng learning rate, dropout, batch size hay loss. Vì vậy việc GRU4Rec thấp hơn SKNN trong thí nghiệm này không phủ định tiềm năng của mô hình tuần tự sâu; nó chỉ phản ánh cấu hình đang xét.
+    \item \textbf{GRU4Rec mới được huấn luyện ở mức vừa phải:} Số epoch được chọn bằng validation + early stopping (best epoch 19), nhưng chưa tune rộng learning rate, dropout, batch size hay loss; ngoài ra mô hình huấn luyện trên train-inner nhỏ hơn train-full do phải tách validation. Vì vậy việc GRU4Rec thấp hơn SKNN trong thí nghiệm này không phủ định tiềm năng của mô hình tuần tự sâu; nó chỉ phản ánh cấu hình đang xét.
 
     \item \textbf{Chưa thử các biến thể mạnh hơn:} Phần thực nghiệm chưa bao gồm V-SKNN, STAN, NARM, SR-GNN, hoặc GRU4Rec với BPR loss. Các biến thể này có thể thay đổi thứ hạng mô hình.
 
@@ -1915,9 +1923,9 @@ Báo cáo này trình bày bài toán Session-based Recommendation trong bối c
 \begin{enumerate}
     \item \textbf{Popularity Baseline} (Recall@20 = 1.87\%): Kết quả này cho thấy việc chỉ gợi ý item phổ biến không đủ cho bài toán theo phiên, nhưng vẫn cần giữ làm mốc so sánh tối thiểu.
 
-    \item \textbf{SKNN với K=500} (Recall@20 = 29.52\%, MRR@20 = 0.1349): Phương pháp dựa trên phiên lân cận đạt kết quả cao nhất trong thí nghiệm, cao hơn Popularity +27.65 điểm Recall@20. Điểm mạnh của SKNN là không cần huấn luyện và có thể diễn giải qua các phiên hàng xóm.
+    \item \textbf{SKNN với K=500} (Recall@20 = 29.52\%, MRR@20 = 0.1350): Phương pháp dựa trên phiên lân cận đạt kết quả cao nhất trong thí nghiệm, cao hơn Popularity +27.65 điểm Recall@20. Điểm mạnh của SKNN là không cần huấn luyện và có thể diễn giải qua các phiên hàng xóm.
 
-    \item \textbf{GRU4Rec với 10 epoch} (Recall@20 = 27.96\%, MRR@20 = 0.1262): Mô hình học sâu đạt kết quả gần SKNN nhưng \textbf{chưa vượt} (thấp hơn 1.56 điểm Recall) trong cấu hình mẫu 1/64 và 10 epoch. Kết quả này hợp lý vì GRU4Rec thường cần nhiều dữ liệu, nhiều epoch và tune siêu tham số kỹ hơn.
+    \item \textbf{GRU4Rec (best epoch 19/40, early stopping)} (Recall@20 = 22.87\%, MRR@20 = 0.1043): Mô hình học sâu \textbf{chưa vượt} SKNN (thấp hơn 6.65 điểm Recall) trong cấu hình mẫu 1/64. Số epoch được chọn một cách hệ thống bằng validation + early stopping (đỉnh Recall@20 trên val tại epoch 19), cho ước lượng hiệu năng test không thiên vị. Kết quả này hợp lý vì GRU4Rec thường cần nhiều dữ liệu và tune siêu tham số kỹ hơn.
 \end{enumerate}
 
 \textbf{Kết luận quan trọng:}
@@ -1925,6 +1933,7 @@ Báo cáo này trình bày bài toán Session-based Recommendation trong bối c
     \item Thông tin trong phiên hiện tại, dù chỉ gồm vài click, đã cải thiện chất lượng gợi ý đáng kể so với popularity thuần túy.
     \item SKNN là baseline mạnh và dễ giải thích; vì vậy nên xem nó là mốc so sánh nghiêm túc trước khi kết luận một mô hình học sâu là tốt hơn.
     \item GRU4Rec có lợi thế khi học thứ tự click, nhưng \textbf{không mặc định vượt SKNN} nếu dữ liệu ít, phiên ngắn hoặc quá trình huấn luyện chưa được tối ưu.
+    \item Việc dùng validation + early stopping (thay vì cố định số epoch) là một thực hành đánh giá nghiêm túc: đường cong cho thấy loss huấn luyện vẫn giảm trong khi Recall@20 trên validation đã bão hòa, nên không thể chọn epoch chỉ dựa vào loss huấn luyện.
 \end{itemize}
 
 \subsection{Đóng góp chính}

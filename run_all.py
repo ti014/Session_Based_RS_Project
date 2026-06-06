@@ -24,7 +24,7 @@ import argparse
 import torch
 
 from src import config
-from src.data import load_clicks, preprocess, save_processed
+from src.data import load_clicks, preprocess, save_processed, split_train_val_by_time
 from src.models import PopularityBaseline, SKNN, build_item_index, train_gru, evaluate_gru
 from src.models.gru4rec import get_device
 from src.evaluate import evaluate
@@ -44,6 +44,11 @@ def main():
     SKNN_K = cfg["SKNN_K"]
     N_EPOCHS = cfg["N_EPOCHS"]
     K_VALUES = cfg["K_VALUES"]
+    VAL_RATIO = cfg["VAL_RATIO"]
+    PATIENCE = cfg["PATIENCE"]
+    MIN_DELTA = cfg["MIN_DELTA"]
+    VAL_MAX_EVAL = cfg["VAL_MAX_EVAL"]
+    EARLY_STOP_METRIC = cfg["EARLY_STOP_METRIC"]
 
     print("=" * 60)
     print("  CHỦ ĐỀ 9: SESSION-BASED RECOMMENDATION SYSTEM")
@@ -65,7 +70,17 @@ def main():
         train_ratio=cfg["TRAIN_RATIO"],
         seed=cfg["SEED"],
     )
-    save_processed(train_sessions, test_sessions, cfg["PROCESSED_PATH"])
+    # Tách validation từ cuối train (theo thời gian) cho GRU4Rec; Pop/SKNN vẫn
+    # dùng train-full (= train_inner + val) nên số liệu của chúng KHÔNG đổi.
+    train_inner_sessions, val_sessions = split_train_val_by_time(
+        train_sessions, info["train_ordered_sids"], val_ratio=VAL_RATIO,
+    )
+    print(f"  Train-full (Pop/SKNN): {len(train_sessions):,} | "
+          f"Train-inner (GRU): {len(train_inner_sessions):,} | "
+          f"Val (GRU): {len(val_sessions):,} | Test: {len(test_sessions):,}")
+    save_processed(train_sessions, test_sessions, cfg["PROCESSED_PATH"],
+                   train_inner_sessions=train_inner_sessions,
+                   val_sessions=val_sessions, info=info)
 
     # --- Phần 2: Popularity Baseline ---
     print("\n" + "-" * 60)
@@ -90,19 +105,25 @@ def main():
     print(f"  Recall@20 = {r_sknn:.4f} ({r_sknn*100:.2f}%) | MRR@20 = {mrr_sknn:.4f}")
     print(f"  Cải thiện so với Popularity: +{(r_sknn-r_pop)*100:.2f}%")
 
-    # --- Phần 4: GRU4Rec ---
+    # --- Phần 4: GRU4Rec (val + early stopping) ---
     print("\n" + "-" * 60)
-    print(f"  PHẦN 4: GRU4Rec ({N_EPOCHS} epoch)")
+    print(f"  PHẦN 4: GRU4Rec (tối đa {N_EPOCHS} epoch, early stopping theo val)")
     print("-" * 60)
     device = get_device()
-    item2idx, n_items = build_item_index(train_sessions)
-    model_gru, loss_history = train_gru(
-        train_sessions, item2idx, n_items,
+    # GRU chỉ học trên train_inner -> vocab cũng xây trên train_inner.
+    item2idx, n_items = build_item_index(train_inner_sessions)
+    model_gru, gru_history = train_gru(
+        train_inner_sessions, item2idx, n_items,
+        val_sessions=val_sessions,
         n_epochs=N_EPOCHS, device=device, seed=cfg["SEED"],
+        top_n=TOP_N, patience=PATIENCE, min_delta=MIN_DELTA,
+        val_max_eval=VAL_MAX_EVAL, early_stop_metric=EARLY_STOP_METRIC,
     )
     r_gru, mrr_gru, n_gru = evaluate_gru(
         model_gru, test_sessions, item2idx, top_n=TOP_N, max_eval=MAX_EVAL, device=device,
     )
+    print(f"  Best epoch: {gru_history['best_epoch']}/{N_EPOCHS} "
+          f"(early_stopped={gru_history['early_stopped']})")
     print(f"  Recall@20 = {r_gru:.4f} ({r_gru*100:.2f}%) | MRR@20 = {mrr_gru:.4f}")
     torch.save(model_gru.state_dict(), cfg["GRU_MODEL_PATH"])
 
@@ -127,15 +148,28 @@ def main():
         "sknn": {"recall": r_sknn, "mrr": mrr_sknn},
         "gru4rec": {"recall": r_gru, "mrr": mrr_gru},
         "k_experiment": {"k_values": K_VALUES, "recalls": recall_by_k},
-        "gru_loss_history": loss_history,
+        "gru_loss_history": gru_history,   # giờ là dict (train_loss, val_recall, ...)
+        "gru_history": gru_history,        # alias rõ nghĩa
         "meta": {
-            "n_train": len(train_sessions),
+            "n_train": len(train_sessions),         # train-full (giữ ý nghĩa key cũ)
+            "n_train_full": len(train_sessions),
+            "n_train_inner": len(train_inner_sessions),
+            "n_val": len(val_sessions),
             "n_test": len(test_sessions),
             "n_eval": n_sknn,
             "n_items": n_items,
-            "n_epochs": N_EPOCHS,
+            "n_epochs": N_EPOCHS,                   # = max epochs
+            "max_epochs": N_EPOCHS,
+            "best_epoch": gru_history.get("best_epoch"),
+            "stopped_epoch": gru_history.get("stopped_epoch"),
+            "early_stopped": gru_history.get("early_stopped"),
+            "best_val_recall": gru_history.get("best_val_recall"),
+            "best_val_mrr": gru_history.get("best_val_mrr"),
+            "patience": PATIENCE,
+            "min_delta": MIN_DELTA,
+            "val_ratio": VAL_RATIO,
             "sknn_k": SKNN_K,
-            "split": info["split"],
+            "split": "time-based 90/10 train_full/test; val = đuôi của train_full theo thời gian",
             "smoke": smoke,
         },
     }
@@ -151,7 +185,8 @@ def main():
     print("  " + "-" * 52)
     print(f"  {'Popularity Baseline':<22}{r_pop:>14.4f}{mrr_pop:>14.4f}")
     print(f"  {'SKNN (k='+str(SKNN_K)+')':<22}{r_sknn:>14.4f}{mrr_sknn:>14.4f}")
-    print(f"  {'GRU4Rec ('+str(N_EPOCHS)+' epoch)':<22}{r_gru:>14.4f}{mrr_gru:>14.4f}")
+    _be = gru_history.get("best_epoch") or len(gru_history["train_loss"])
+    print(f"  {'GRU4Rec (best ep '+str(_be)+'/'+str(N_EPOCHS)+')':<22}{r_gru:>14.4f}{mrr_gru:>14.4f}")
     print("  " + "=" * 52)
     print(f"  Đánh giá trên {n_sknn:,} phiên test (toàn bộ)")
     print("\n" + "=" * 60)

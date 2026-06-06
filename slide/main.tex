@@ -34,7 +34,7 @@
 \subtitle{Session-based Recommendation System}
 \author[Phương, Hoàng, Nam]{Phan Nguyễn Mai Phương -- 25002711\\Ngô Quốc Hoàng -- 25001771\\Bùi Thức Nam -- 25003881}
 \institute{Trường Đại học Công nghiệp TP.HCM\\Khoa Công nghệ Thông tin\\GVHD: TS. Lê Thị Vĩnh Thanh}
-\date{2024--2025}
+\date{\today}
 
 \begin{document}
 
@@ -237,7 +237,9 @@ Lĩnh vực & E-commerce \\
 \midrule
 Số phiên (mẫu) & 144,527 \\
 Sau lọc & 116,267 \\
-Train & 108,263 \\
+Train-full & 108,263 \\
+\quad train-inner & 96,234 \\
+\quad validation & 12,029 \\
 Test & 8,004 \\
 \bottomrule
 \end{tabular}
@@ -248,6 +250,7 @@ Test & 8,004 \\
 \begin{block}{Tiền xử lý}
 \begin{enumerate}
     \item Chia train/test theo \textbf{thời gian} (90/10)
+    \item Tách \textbf{validation} từ cuối train (cho GRU4Rec)
     \item Lọc item hiếm ($<5$ lần, \textbf{chỉ trên train})
     \item Lọc độ dài phiên $\in [2,20]$
 \end{enumerate}
@@ -758,8 +761,8 @@ MRR@20 & $\frac{1}{N}\sum \frac{1}{\text{rank}_i}$ & Trung bình nghịch đảo
 \textbf{Mô hình} & \textbf{Recall@20} & \textbf{MRR@20} \\
 \midrule
 Popularity Baseline & 0.0187 (1.87\%) & 0.0041 \\
-\textbf{SKNN (k=500)} & \textbf{0.2952 (29.5\%)} & \textbf{0.1349} \\
-GRU4Rec (10 epoch) & 0.2796 (28.0\%) & 0.1262 \\
+\textbf{SKNN (k=500)} & \textbf{0.2952 (29.5\%)} & \textbf{0.1350} \\
+GRU4Rec (best ep 19/40) & 0.2287 (22.9\%) & 0.1043 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -770,8 +773,8 @@ GRU4Rec (10 epoch) & 0.2796 (28.0\%) & 0.1262 \\
 \begin{exampleblock}{Nhận xét}
 \begin{itemize}
     \item SKNN vượt Popularity \textbf{+27.65 điểm}
-    \item SKNN nhỉnh hơn GRU4Rec \textbf{+1.56 điểm}
-    \item Cả hai đều vượt xa baseline
+    \item SKNN nhỉnh hơn GRU4Rec \textbf{+6.65 điểm}
+    \item GRU4Rec chọn epoch bằng early stopping trên val
 \end{itemize}
 \end{exampleblock}
 \end{column}
@@ -820,21 +823,17 @@ K & Recall@20 \\
 \end{columns}
 \end{frame}
 
-\begin{frame}{GRU4Rec -- Training Loss}
+\begin{frame}{GRU4Rec -- Loss \& Validation Recall}
 \begin{columns}
 \begin{column}{0.55\textwidth}
 \includegraphics[width=\textwidth]{../output/gru4rec_loss_curve.png}
 \end{column}
 \begin{column}{0.4\textwidth}
 \begin{itemize}
-    \item Loss giảm đều qua 10 epoch
-    \item Chưa hội tụ hoàn toàn
-    \item Có thể cải thiện thêm với:
-    \begin{itemize}
-        \item Nhiều epoch hơn (20--30)
-        \item Learning rate scheduling
-        \item Larger hidden size
-    \end{itemize}
+    \item Loss train giảm đơn điệu
+    \item Recall@20 trên \textbf{val} bão hòa quanh epoch 15--19
+    \item \textbf{Early stopping}: best = epoch 19, dừng tại epoch 21
+    \item Loss giảm $\neq$ chất lượng tăng $\rightarrow$ phải chọn epoch theo val
 \end{itemize}
 
 \vspace{0.3cm}
@@ -842,7 +841,8 @@ K & Recall@20 \\
 \small
 Embedding: 64, Hidden: 128\\
 Optimizer: Adam, lr=0.001\\
-Batch size: 256
+Batch size: 256, max 40 epoch\\
+Early stopping: patience 2 (val Recall@20)
 \end{block}
 \end{column}
 \end{columns}
@@ -860,17 +860,17 @@ Batch size: 256
         \textbf{Tập dữ liệu} & Yoochoose(Mẫu 1/64) & Diginetica & Yoochoose(Gốc 1/1) \\
         \textbf{Nguồn / Tác giả} & TN thực tế (nhóm) & VD minh họa (cô) & Hidasi et al. (2016) \\
         \textbf{Số phiên Train} & 108,263 & 164,401 & 7,966,257 \\
-        \textbf{Số sản phẩm (Items)} & 10,435 & 43,097 & 37,483 \\
+        \textbf{Số sản phẩm (Items)} & 10,234 & 43,097 & 37,483 \\
         \midrule
         \textbf{Recall@20} & & & \\
         -- Popularity Baseline & 1.87\% & 28.41\% & 0.50\% \\
         -- \textbf{SKNN (k=500)} & \textbf{29.52\%} & 51.23\% & 50.65\% (Item-KNN) \\
-        -- GRU4Rec & 27.96\% (10 epochs) & \textbf{58.34\%}(5 epochs) & \textbf{- - -} \\
+        -- GRU4Rec & 22.87\% (best ep 19) & \textbf{58.34\%}(5 epochs) & \textbf{- - -} \\
         \midrule
         \textbf{MRR@20} & & & \\
         -- Popularity Baseline & 0.0041 & 0.1023 & 0.0012 \\
-        -- \textbf{SKNN (k=500)} & \textbf{0.1349} & 0.2187 & 0.2048 (Item-KNN) \\
-        -- GRU4Rec & 0.1262 & \textbf{0.2563} & \textbf{- - -} \\
+        -- \textbf{SKNN (k=500)} & \textbf{0.1350} & 0.2187 & 0.2048 (Item-KNN) \\
+        -- GRU4Rec & 0.1043 & \textbf{0.2563} & \textbf{- - -} \\
         \bottomrule
     \end{tabular}
 
@@ -897,8 +897,8 @@ Batch size: 256
 Bài toán & Dự đoán item tiếp theo từ chuỗi hành vi phiên hiện tại \\
 Khác CF & Không cần User ID, phù hợp phiên ẩn danh/cold-start user \\
 SKNN & Đơn giản, hiệu quả, không cần GPU \\
-GRU4Rec & Học được thứ tự click; cần thêm dữ liệu/epoch để cải thiện \\
-Kết quả & Popularity 1.87\% $\rightarrow$ GRU4Rec 28.0\% $\rightarrow$ SKNN 29.5\% \\
+GRU4Rec & Học được thứ tự click; chọn epoch bằng early stopping trên val; cần thêm dữ liệu để cải thiện \\
+Kết quả & Popularity 1.87\% $\rightarrow$ GRU4Rec 22.9\% $\rightarrow$ SKNN 29.5\% \\
 \bottomrule
 \end{tabular}
 \end{table}

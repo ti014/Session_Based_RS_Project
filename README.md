@@ -38,8 +38,9 @@ Hệ thống khuyến nghị dựa trên phiên (Session-Based Recommendation) c
 ## Tính năng chính
 
 - Tiền xử lý dataset Yoochoose theo quy trình chống rò rỉ dữ liệu.
-- Chia train/test theo thời gian: dùng phiên sớm để dự đoán phiên muộn.
+- Chia train/test theo thời gian: dùng phiên sớm để dự đoán phiên muộn; tách thêm validation từ cuối train cho GRU4Rec.
 - Lọc item hiếm chỉ dựa trên tập train.
+- GRU4Rec dùng early stopping theo Recall@20 trên validation để chọn số epoch.
 - Triển khai 3 mô hình:
   - Popularity Baseline
   - SKNN (Session K-Nearest Neighbors) với inverted index
@@ -51,7 +52,7 @@ Hệ thống khuyến nghị dựa trên phiên (Session-Based Recommendation) c
 - Vẽ biểu đồ có dấu tiếng Việt:
   - So sánh Recall@20 và MRR@20
   - Ảnh hưởng của K trong SKNN
-  - Loss huấn luyện GRU4Rec
+  - Loss huấn luyện + Recall@20 trên validation theo epoch (đánh dấu best epoch)
 - Notebook dùng cho báo cáo/trình bày; logic chính nằm trong package `src/`.
 - Có báo cáo LaTeX và slide Beamer đã build sẵn.
 
@@ -237,12 +238,12 @@ Lệnh này thực hiện toàn bộ quy trình:
 
 1. Đọc `data/yoochoose-clicks.dat`.
 2. Lấy mẫu 1/64 theo phiên với seed cố định.
-3. Chia train/test theo thời gian.
+3. Chia train/test theo thời gian, rồi tách validation từ cuối train (cho GRU4Rec).
 4. Lọc item hiếm dựa trên train.
 5. Lọc độ dài phiên trong `[2, 20]`.
-6. Huấn luyện/đánh giá Popularity Baseline.
-7. Huấn luyện/đánh giá SKNN.
-8. Huấn luyện/đánh giá GRU4Rec.
+6. Huấn luyện/đánh giá Popularity Baseline (trên train-full).
+7. Huấn luyện/đánh giá SKNN (trên train-full).
+8. Huấn luyện GRU4Rec với early stopping theo Recall@20 trên val, đánh giá trên test.
 9. Thử nhiều giá trị K cho SKNN.
 10. Lưu kết quả vào `output/all_results.pkl`.
 11. Vẽ biểu đồ vào `output/`.
@@ -312,48 +313,63 @@ Kết quả thật đang lưu trong `output/all_results.pkl`:
 | Mô hình | Recall@20 | MRR@20 | Ghi chú |
 |---|---:|---:|---|
 | Popularity Baseline | 0.0187 | 0.0041 | Chỉ dựa trên item phổ biến |
-| SKNN (K=500) | 0.2952 | 0.1349 | Tốt nhất trong cấu hình hiện tại |
-| GRU4Rec (10 epoch) | 0.2796 | 0.1262 | Gần SKNN nhưng chưa vượt |
+| SKNN (K=500) | 0.2952 | 0.1350 | Tốt nhất trong cấu hình hiện tại |
+| GRU4Rec (best epoch 19/40) | 0.2287 | 0.1043 | Chọn epoch bằng early stopping theo val |
 
 Diễn giải nhanh:
 
 - Popularity rất thấp, chứng tỏ chỉ gợi ý item phổ biến không đủ cho session-based recommendation.
 - SKNN vượt mạnh Popularity vì tận dụng được item trong phiên hiện tại.
-- GRU4Rec học được thứ tự click và đạt kết quả gần SKNN, nhưng trong cấu hình 1/64 dataset + 10 epoch vẫn thấp hơn SKNN.
+- GRU4Rec học được thứ tự click, nhưng trong cấu hình 1/64 dataset vẫn thấp hơn SKNN. Số epoch được chọn bằng **validation + early stopping** (đỉnh Recall@20 trên val ở epoch 19, dừng tại epoch 21), nên đây là ước lượng hiệu năng test **không thiên vị** — khác với cách huấn luyện cứng rồi nhìn thẳng test.
 - Kết luận này chỉ áp dụng cho cấu hình thí nghiệm hiện tại, không nên suy rộng tuyệt đối sang mọi dataset.
 
 ### Thống kê thí nghiệm
 
 | Thông tin | Giá trị |
 |---|---:|
-| Số phiên train | 108,263 |
+| Số phiên train-full (Popularity/SKNN) | 108,263 |
+| Số phiên train-inner (GRU4Rec) | 96,234 |
+| Số phiên validation (GRU4Rec) | 12,029 |
 | Số phiên test | 8,004 |
 | Số phiên đánh giá | 8,004 |
-| Số item sau xử lý (gồm padding cho GRU) | 10,435 |
-| Số epoch GRU4Rec | 10 |
+| Số item sau xử lý, GRU (gồm padding) | 10,234 |
+| Số epoch tối đa GRU4Rec | 40 |
+| Best epoch (theo val Recall@20) | 19 |
+| Epoch dừng (early stopping, patience 2) | 21 |
 | K của SKNN chính | 500 |
-| Split | 90% phiên sớm / 10% phiên muộn |
+| Split | train/test 90/10 theo thời gian; val = đuôi train-full |
 
 ### Ảnh hưởng của K trong SKNN
 
 | K | Recall@20 |
 |---:|---:|
-| 50 | 0.2702 |
+| 50 | 0.2704 |
 | 100 | 0.2846 |
 | 200 | 0.2951 |
 | 500 | 0.2952 |
 
 Nhận xét: Recall tăng từ K=50 đến K=200, sau đó gần bão hòa ở K=500.
 
-### Loss GRU4Rec
+### Đường cong huấn luyện GRU4Rec
 
-Loss theo 10 epoch:
+Loss huấn luyện (21 epoch chạy trước khi early stopping dừng):
 
 ```text
-[7.7946, 6.3775, 5.6863, 5.2624, 4.9775, 4.7761, 4.6230, 4.5060, 4.4118, 4.3349]
+[7.8381, 6.4464, 5.7470, 5.3156, 5.0235, 4.8118, 4.6514, 4.5236, 4.4166, 4.3412,
+ 4.2685, 4.2118, 4.1577, 4.1131, 4.0730, 4.0350, 4.0046, 3.9762, 3.9463, 3.9231, 3.9016]
 ```
 
-Loss giảm đều, cho thấy mô hình có học. Tuy vậy, việc loss giảm không đồng nghĩa mô hình chắc chắn vượt SKNN về Recall@20/MRR@20.
+Recall@20 trên validation theo epoch:
+
+```text
+[0.1059, 0.1538, 0.1881, 0.2146, 0.2275, 0.2377, 0.2465, 0.2535, 0.2604, 0.2640,
+ 0.2669, 0.2694, 0.2703, 0.2720, 0.2728, 0.2720, 0.2730, 0.2736, 0.2739, 0.2725, 0.2736]
+```
+
+Loss train giảm đơn điệu, nhưng Recall@20 trên val **bão hòa** quanh epoch 15–19 (đỉnh 0.2739
+tại epoch 19). Early stopping (patience 2) dừng tại epoch 21 và khôi phục trọng số của epoch 19.
+Đây chính là lý do không thể chọn epoch chỉ dựa vào loss train: loss vẫn giảm trong khi chất
+lượng trên dữ liệu chưa thấy đã ngừng cải thiện.
 
 ## Kiến trúc hệ thống
 
@@ -377,13 +393,13 @@ src.data.preprocess()
       +--> data/processed_data.pkl
       |
       v
-train_sessions, test_sessions
+train_full, test  (+ train_inner, val cho GRU4Rec)
       |
-      +--> PopularityBaseline --> src.evaluate.evaluate()
+      +--> PopularityBaseline --> src.evaluate.evaluate()        (train-full)
       |
-      +--> SKNN               --> src.evaluate.evaluate()
+      +--> SKNN               --> src.evaluate.evaluate()        (train-full)
       |
-      +--> GRU4Rec            --> src.models.gru4rec.evaluate_gru()
+      +--> GRU4Rec (train_inner + val, early stopping) --> src.models.gru4rec.evaluate_gru() (test)
       |
       v
 output/all_results.pkl
@@ -446,20 +462,24 @@ Dữ liệu được sort theo:
 
 Điều này đảm bảo chuỗi item trong mỗi phiên đúng thứ tự click.
 
-### Bước 4: Chia train/test theo thời gian
+### Bước 4: Chia train/test theo thời gian, rồi tách validation
 
 Cấu hình:
 
 ```python
-TRAIN_RATIO = 0.9
+TRAIN_RATIO = 0.9   # train-full / test
+VAL_RATIO   = 1/9   # phần đuôi của train-full được cắt làm validation (~10% tổng dữ liệu)
 ```
 
 Cách chia:
 
-- 90% phiên sớm nhất -> train.
-- 10% phiên muộn nhất -> test.
+- 90% phiên sớm nhất -> train-full; 10% phiên muộn nhất -> test.
+- Tách tiếp train-full thành train-inner (sớm hơn) + validation (muộn hơn) bằng
+  `split_train_val_by_time()`. Validation dùng cho early stopping của GRU4Rec.
+- Popularity và SKNN vẫn dùng **train-full** (= train-inner + val) nên số liệu của chúng
+  không đổi; tập **test giữ nguyên** với mọi mô hình.
 
-Lý do: mô phỏng tình huống thực tế “dùng quá khứ để dự đoán tương lai”, tốt hơn chia random đối với dữ liệu thời gian.
+Lý do: mô phỏng tình huống thực tế “dùng quá khứ để dự đoán tương lai”, tốt hơn chia random đối với dữ liệu thời gian. Validation cắt theo thời gian giữ đúng tinh thần đó.
 
 ### Bước 5: Lọc item hiếm chỉ trên train
 
@@ -588,7 +608,7 @@ Cấu hình mặc định:
 
 | Tham số | Giá trị |
 |---|---:|
-| `N_EPOCHS` | 10 |
+| `N_EPOCHS` (số epoch tối đa) | 40 |
 | `EMB_SIZE` | 64 |
 | `HIDDEN_SIZE` | 128 |
 | `N_LAYERS` | 1 |
@@ -597,6 +617,9 @@ Cấu hình mặc định:
 | `LEARNING_RATE` | 1e-3 |
 | `WEIGHT_DECAY` | 1e-5 |
 | `GRAD_CLIP` | 5.0 |
+| `VAL_RATIO` | 1/9 |
+| `PATIENCE` (early stopping) | 2 |
+| `EARLY_STOP_METRIC` | recall (Recall@20 trên val) |
 
 Cách tạo mẫu train:
 
@@ -707,10 +730,10 @@ Trình bày:
 
 Trình bày:
 
-- Cách đánh số item.
+- Cách đánh số item (vocab xây trên train-inner).
 - Dataset PyTorch.
 - Kiến trúc GRU4Rec.
-- Huấn luyện và đánh giá GRU4Rec.
+- Huấn luyện với validation + early stopping; đánh giá trên test bằng trọng số tốt nhất.
 - Lưu model vào `output/gru4rec_model.pt`.
 
 ### `05_so_sanh_ket_qua.ipynb`
@@ -776,14 +799,14 @@ Ghi chú:
 
 | File | Sinh bởi | Ý nghĩa |
 |---|---|---|
-| `data/processed_data.pkl` | `src.data.save_processed()` | Train/test session sau tiền xử lý |
+| `data/processed_data.pkl` | `src.data.save_processed()` | Train-full/test + train-inner/val sau tiền xử lý |
 | `output/all_results.pkl` | `run_all.py` hoặc notebook 03+04 | Kết quả tổng hợp |
 | `output/gru4rec_model.pt` | GRU4Rec training | Trọng số PyTorch của GRU4Rec; sinh ra khi chạy, không commit mặc định |
 | `output/so_sanh_3_mo_hinh.png` | `src.plots.plot_comparison()` | Biểu đồ so sánh 3 mô hình |
 | `output/so_sanh_final.png` | `src.plots.plot_comparison()` | Bản dùng trong report |
 | `output/recall_theo_k.png` | `src.plots.plot_recall_by_k()` | Biểu đồ K của SKNN |
 | `output/recall_theo_k_final.png` | `src.plots.plot_recall_by_k()` | Bản dùng trong report |
-| `output/gru4rec_loss_curve.png` | `src.plots.plot_loss_curve()` | Loss GRU4Rec theo epoch |
+| `output/gru4rec_loss_curve.png` | `src.plots.plot_loss_curve()` | Loss train + Recall@20 trên val theo epoch (best epoch) |
 | `report/main.pdf` | LaTeX | Báo cáo cuối |
 | `slide/main.pdf` | LaTeX Beamer | Slide thuyết trình |
 
@@ -835,7 +858,7 @@ K_VALUES = [50, 100, 200, 500]
 ### GRU4Rec
 
 ```python
-N_EPOCHS = 10
+N_EPOCHS = 40          # số epoch tối đa; early stopping có thể dừng sớm hơn
 EMB_SIZE = 64
 HIDDEN_SIZE = 128
 N_LAYERS = 1
@@ -844,6 +867,11 @@ BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
 GRAD_CLIP = 5.0
+
+# Validation & early stopping
+VAL_RATIO = 1/9        # đuôi train-full làm validation
+PATIENCE = 2           # dừng nếu Recall@20 trên val không cải thiện sau 2 epoch
+EARLY_STOP_METRIC = "recall"
 ```
 
 ## Tái lập kết quả
@@ -874,9 +902,12 @@ Kỳ vọng gần với:
 
 ```text
 popularity {'recall': 0.018740629685157422, 'mrr': 0.004133761371299721}
-sknn {'recall': 0.2952273863068466, 'mrr': 0.13490508093096515}
-gru4rec {'recall': 0.27964513307509686, 'mrr': 0.12619739606063746}
+sknn {'recall': 0.2952273863068466, 'mrr': 0.13502...}
+gru4rec {'recall': 0.22867025365103766, 'mrr': 0.10432686256691429}
 ```
+
+(GRU4Rec ở best epoch 19/40 do early stopping; `meta` chứa `best_epoch`, `stopped_epoch`,
+`early_stopped`, `best_val_recall`.)
 
 Lưu ý:
 
@@ -1057,7 +1088,7 @@ Notebook đã có đoạn bootstrap để thêm project root vào `sys.path`, nh
 
 - Thí nghiệm dùng mẫu 1/64 của Yoochoose, nên số tuyệt đối có thể khác khi chạy toàn bộ dataset.
 - Chỉ dùng click data, chưa dùng category, price, dwell time hoặc thông tin nội dung item.
-- GRU4Rec mới chạy 10 epoch và chưa tune rộng siêu tham số.
+- GRU4Rec chọn số epoch bằng validation + early stopping (đỉnh ở epoch 19), nhưng chưa tune rộng các siêu tham số khác (learning rate, dropout, hidden size).
 - Chưa thử các mô hình mạnh hơn như NARM, STAN, SR-GNN, BERT4Rec.
 - Đánh giá offline bằng leave-one-out chưa thay thế được A/B testing trong hệ thống thật.
 

@@ -86,23 +86,41 @@ class GRU4Rec(nn.Module):
 
 
 def train_gru(train_sessions, item2idx, n_items,
+              val_sessions=None,
               n_epochs=cfg.N_EPOCHS, device=None, seed=cfg.SEED,
               emb_size=cfg.EMB_SIZE, hidden_size=cfg.HIDDEN_SIZE,
               batch_size=cfg.BATCH_SIZE, lr=cfg.LEARNING_RATE,
               weight_decay=cfg.WEIGHT_DECAY, grad_clip=cfg.GRAD_CLIP,
+              top_n=cfg.TOP_N, patience=cfg.PATIENCE, min_delta=cfg.MIN_DELTA,
+              val_max_eval=cfg.VAL_MAX_EVAL, early_stop_metric=cfg.EARLY_STOP_METRIC,
               verbose: bool = True):
-    """Huấn luyện GRU4Rec. Trả về ``(model, loss_history)``.
+    """Huấn luyện GRU4Rec. Trả về ``(model, history)``.
+
+    Nếu truyền ``val_sessions``: mỗi epoch đánh giá Recall@20 trên val, lưu lại
+    trọng số tốt nhất (best) và dừng sớm nếu không cải thiện sau ``patience``
+    epoch (early stopping). Cuối cùng khôi phục trọng số best.
+
+    Nếu ``val_sessions=None``: huấn luyện đủ ``n_epochs`` (hành vi cũ).
+
+    ``history`` là dict gồm ``train_loss``, ``val_recall``, ``val_mrr``,
+    ``best_epoch``, ``stopped_epoch``, ``early_stopped``, ...
 
     Cố định seed trước khi khởi tạo model để trọng số ban đầu tái lập.
     """
     if device is None:
         device = get_device()
+    if val_sessions is not None and early_stop_metric != "recall":
+        raise ValueError(f"early_stop_metric chỉ hỗ trợ 'recall', nhận: {early_stop_metric!r}")
+    if val_sessions is not None and patience < 1:
+        raise ValueError(f"patience phải >= 1 khi có validation, nhận: {patience}")
     torch.manual_seed(seed)
     if verbose:
         print(f"  Device: {device}")
         print(f"  Số item (vocab): {n_items:,}")
 
     dataset = SessionDataset(train_sessions, item2idx)
+    if len(dataset) == 0:
+        raise ValueError("Không có mẫu huấn luyện GRU sau khi tách train/val")
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     if verbose:
         print(f"  Số mẫu: {len(dataset):,} | Số batch: {len(loader):,}")
@@ -112,9 +130,21 @@ def train_gru(train_sessions, item2idx, n_items,
     criterion = nn.CrossEntropyLoss(ignore_index=0)
     if verbose:
         print(f"  Tổng tham số: {sum(p.numel() for p in model.parameters()):,}")
-        print(f"\n  Huấn luyện {n_epochs} epoch...")
+        mode = "early stopping theo val Recall@%d" % top_n if val_sessions is not None else "cố định"
+        print(f"\n  Huấn luyện tối đa {n_epochs} epoch ({mode})...")
 
-    loss_history = []
+    history = {
+        "train_loss": [], "val_recall": [], "val_mrr": [], "val_n_eval": [],
+        "best_epoch": None, "best_val_recall": None, "best_val_mrr": None,
+        "stopped_epoch": None, "early_stopped": False,
+        "monitor": f"val_recall@{top_n}" if val_sessions is not None else None,
+        "patience": patience, "min_delta": min_delta, "max_epochs": n_epochs,
+    }
+
+    best_score = -float("inf")
+    best_state = None
+    epochs_no_improve = 0
+
     for epoch in range(1, n_epochs + 1):
         model.train()
         total_loss = 0.0
@@ -128,12 +158,58 @@ def train_gru(train_sessions, item2idx, n_items,
             optimizer.step()
             total_loss += loss.item()
         avg_loss = total_loss / len(loader)
-        loss_history.append(avg_loss)
+        history["train_loss"].append(avg_loss)
+
+        if val_sessions is None:
+            if verbose:
+                print(f"    Epoch {epoch:2d}/{n_epochs} | Loss={avg_loss:.4f} | {time.time()-epoch_start:.1f}s")
+            continue
+
+        # --- Đánh giá trên validation để chọn epoch tốt nhất ---
+        val_recall, val_mrr, val_n = evaluate_gru(
+            model, val_sessions, item2idx, top_n=top_n,
+            max_eval=val_max_eval, device=device, verbose=False)
+        history["val_recall"].append(val_recall)
+        history["val_mrr"].append(val_mrr)
+        history["val_n_eval"].append(val_n)
+
+        improved = val_recall > best_score + min_delta
+        marker = ""
+        if improved:
+            best_score = val_recall
+            history["best_epoch"] = epoch
+            history["best_val_recall"] = val_recall
+            history["best_val_mrr"] = val_mrr
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+            epochs_no_improve = 0
+            marker = " *best*"
+        else:
+            epochs_no_improve += 1
+
         if verbose:
-            print(f"    Epoch {epoch:2d}/{n_epochs} | Loss={avg_loss:.4f} | {time.time()-epoch_start:.1f}s")
+            print(f"    Epoch {epoch:2d}/{n_epochs} | Loss={avg_loss:.4f} | "
+                  f"val R@{top_n}={val_recall:.4f} MRR={val_mrr:.4f} | "
+                  f"{time.time()-epoch_start:.1f}s{marker}")
+
+        if epochs_no_improve >= patience:
+            history["early_stopped"] = True
+            history["stopped_epoch"] = epoch
+            if verbose:
+                print(f"  Early stopping tại epoch {epoch} "
+                      f"(không cải thiện sau {patience} epoch). Best: epoch {history['best_epoch']}")
+            break
+
+    if history["stopped_epoch"] is None:
+        history["stopped_epoch"] = len(history["train_loss"])
+
+    # Khôi phục trọng số tốt nhất theo val.
+    if best_state is not None:
+        model.load_state_dict(best_state)
+        model.to(device)
+
     if verbose:
         print("  OK huấn luyện xong!")
-    return model, loss_history
+    return model, history
 
 
 def evaluate_gru(model, test_sessions, item2idx, top_n=cfg.TOP_N,

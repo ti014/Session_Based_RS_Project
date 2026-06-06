@@ -31,7 +31,7 @@ SKNN_K = 500                  # số phiên hàng xóm gần nhất
 K_VALUES = [50, 100, 200, 500]  # dải K cho thí nghiệm ảnh hưởng của K
 
 # --- GRU4Rec ---
-N_EPOCHS = 10
+N_EPOCHS = 40                 # số epoch TỐI ĐA (early stopping dừng sớm khi val Recall@20 bão hòa)
 EMB_SIZE = 64
 HIDDEN_SIZE = 128
 N_LAYERS = 1
@@ -41,12 +41,21 @@ LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
 GRAD_CLIP = 5.0
 
+# --- Validation & Early stopping (chỉ áp dụng cho GRU4Rec) ---
+VAL_RATIO = 1 / 9             # cắt 1/9 cuối tập train (theo thời gian) làm val ~ 10% tổng dữ liệu
+PATIENCE = 2                  # dừng nếu Recall@20 trên val không cải thiện sau PATIENCE epoch
+MIN_DELTA = 0.0               # mức cải thiện tối thiểu để coi là "tốt hơn"
+EARLY_STOP_METRIC = "recall"  # metric theo dõi trên val (hiện chỉ hỗ trợ "recall")
+VAL_MAX_EVAL = None           # None = đánh giá toàn bộ val mỗi epoch
+
 
 # Cấu hình chế độ smoke: ghi đè vài tham số để chạy trong vài giây.
 SMOKE_OVERRIDES = {
     "SAMPLE_FRACTION": 512,
-    "N_EPOCHS": 1,
+    "N_EPOCHS": 2,            # >=2 để smoke test được nhánh early stopping
+    "PATIENCE": 1,
     "MAX_EVAL": 300,
+    "VAL_MAX_EVAL": 200,
     "K_VALUES": [50, 500],
 }
 

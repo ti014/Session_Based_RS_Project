@@ -70,18 +70,20 @@ def preprocess(df: pd.DataFrame,
         print(f"\n  Bước 0: {len(session_sequences):,} phiên")
 
     # --- Chia train/test THEO THỜI GIAN ---
+    # Giữ thứ tự thời gian dưới dạng LIST (không dùng set) để sau này có thể
+    # tách validation từ cuối train đúng theo trục thời gian.
     ordered_sids = session_start.sort_values().index.tolist()
     split = int(len(ordered_sids) * train_ratio)
-    train_ids_all = set(ordered_sids[:split])
-    test_ids_all = set(ordered_sids[split:])
+    train_ordered_all = ordered_sids[:split]   # sớm nhất -> muộn dần
+    test_ordered_all = ordered_sids[split:]
     split_time = session_start.loc[ordered_sids[split]]
     if verbose:
         print(f"  Bước 1: Chia theo thời gian tại mốc {split_time}")
-        print(f"          Train (sớm): {len(train_ids_all):,} | Test (muộn): {len(test_ids_all):,}")
+        print(f"          Train (sớm): {len(train_ordered_all):,} | Test (muộn): {len(test_ordered_all):,}")
 
     # --- Lọc item hiếm CHỈ trên train (tránh rò rỉ thông tin từ test) ---
     train_item_counts = Counter(
-        i for sid in train_ids_all for i in session_sequences[sid]
+        i for sid in train_ordered_all for i in session_sequences[sid]
     )
     popular_items = {i for i, c in train_item_counts.items() if c >= min_item_freq}
     if verbose:
@@ -90,17 +92,23 @@ def preprocess(df: pd.DataFrame,
     def _clean(seq):
         return [i for i in seq if i in popular_items]
 
+    # Loop theo list đã sắp thời gian: dict giữ đúng thứ tự, và ta lưu thêm
+    # danh sách sid (sau lọc) để tách val về sau không phụ thuộc thứ tự dict.
     train_sessions = {}
-    for sid in train_ids_all:
+    train_ordered_sids = []
+    for sid in train_ordered_all:
         s = _clean(session_sequences[sid])
         if min_len <= len(s) <= max_len:
             train_sessions[sid] = s
+            train_ordered_sids.append(sid)
 
     test_sessions = {}
-    for sid in test_ids_all:
+    test_ordered_sids = []
+    for sid in test_ordered_all:
         s = _clean(session_sequences[sid])
         if min_len <= len(s) <= max_len:
             test_sessions[sid] = s
+            test_ordered_sids.append(sid)
 
     if verbose:
         print(f"  Bước 3: Lọc độ dài [{min_len},{max_len}] + bỏ item hiếm")
@@ -115,20 +123,93 @@ def preprocess(df: pd.DataFrame,
         "split_time": str(split_time),
         "n_popular_items": len(popular_items),
         "split": "time-based (90% sớm / 10% muộn theo thời điểm bắt đầu phiên)",
+        # Thứ tự thời gian (sau lọc) để tách validation từ cuối train.
+        "train_ordered_sids": train_ordered_sids,
+        "test_ordered_sids": test_ordered_sids,
     }
     return train_sessions, test_sessions, info
 
 
-def save_processed(train_sessions, test_sessions, path=cfg.PROCESSED_PATH, verbose: bool = True):
-    """Lưu train/test đã xử lý ra pickle để tái dùng."""
+def split_train_val_by_time(train_sessions: dict,
+                            train_ordered_sids: list,
+                            val_ratio: float = cfg.VAL_RATIO,
+                            min_val_sessions: int = 1,
+                            verbose: bool = True):
+    """Tách validation từ CUỐI tập train (theo thời gian) → ``(train_inner, val)``.
+
+    Lấy ``val_ratio`` phần phiên muộn nhất trong train làm validation, phần còn
+    lại (sớm hơn) làm train_inner. KHÔNG lọc lại item hiếm để không ảnh hưởng
+    cách chia/lọc đã cố định ở ``preprocess`` (test giữ nguyên).
+
+    ``train_ordered_sids``: danh sách sid của train đã sắp theo thời gian
+    (lấy từ ``info['train_ordered_sids']``).
+    """
+    # Phòng trường hợp truyền vào sid không còn trong train_sessions.
+    ordered = [sid for sid in train_ordered_sids if sid in train_sessions]
+    n_total = len(ordered)
+    n_val = max(min_val_sessions, int(round(n_total * val_ratio)))
+    if n_total <= n_val:
+        raise ValueError(
+            f"Không đủ phiên train để tách val: n_total={n_total}, n_val={n_val}"
+        )
+
+    train_inner_ids = ordered[:-n_val]   # sớm hơn
+    val_ids = ordered[-n_val:]           # muộn nhất
+
+    train_inner = {sid: train_sessions[sid] for sid in train_inner_ids}
+    val_sessions = {sid: train_sessions[sid] for sid in val_ids}
+    if verbose:
+        print(f"  Tách val theo thời gian: train_inner={len(train_inner):,} | "
+              f"val={len(val_sessions):,} (val_ratio={val_ratio:.4f})")
+    return train_inner, val_sessions
+
+
+def save_processed(train_sessions, test_sessions, path=cfg.PROCESSED_PATH, verbose: bool = True,
+                   train_inner_sessions=None, val_sessions=None, info=None):
+    """Lưu các tập đã xử lý ra pickle để tái dùng.
+
+    ``train_sessions`` là train-full (cho Popularity/SKNN). Nếu có tách val cho
+    GRU thì truyền thêm ``train_inner_sessions`` và ``val_sessions``.
+    """
+    payload = {
+        "train_sessions": train_sessions,            # train-full (Pop/SKNN)
+        "test_sessions": test_sessions,              # bất biến
+        "train_inner_sessions": train_inner_sessions,  # GRU train (có thể None)
+        "val_sessions": val_sessions,                # GRU validation (có thể None)
+        "info": info or {},
+    }
     with open(path, "wb") as f:
-        pickle.dump({"train_sessions": train_sessions, "test_sessions": test_sessions}, f)
+        pickle.dump(payload, f)
     if verbose:
         print(f"  OK đã lưu {path}")
 
 
-def load_processed(path=cfg.PROCESSED_PATH):
-    """Đọc lại train/test đã xử lý."""
+def load_processed(path=cfg.PROCESSED_PATH, include_val: bool = False, include_info: bool = False):
+    """Đọc lại các tập đã xử lý.
+
+    Mặc định trả ``(train_full, test)`` (tương thích ngược với caller cũ).
+    - ``include_val=True``: trả thêm train_inner, val →
+      ``(train_inner, val, train_full, test)``.
+    - ``include_info=True``: trả kèm dict ``info`` ở cuối tuple.
+    """
     with open(path, "rb") as f:
         d = pickle.load(f)
-    return d["train_sessions"], d["test_sessions"]
+    train_full = d["train_sessions"]
+    test = d["test_sessions"]
+    info = d.get("info", {})
+
+    if include_val:
+        train_inner = d.get("train_inner_sessions")
+        val = d.get("val_sessions")
+        if train_inner is None or val is None:
+            raise ValueError(
+                "Pickle không có train_inner/val. Chạy lại tiền xử lý (run_all.py) "
+                "để sinh validation split."
+            )
+        result = (train_inner, val, train_full, test)
+    else:
+        result = (train_full, test)
+
+    if include_info:
+        return (*result, info)
+    return result

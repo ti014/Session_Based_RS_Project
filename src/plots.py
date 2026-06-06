@@ -16,11 +16,16 @@ COLORS = ["#e74c3c", "#2ecc71", "#3498db"]
 def _model_labels(results: dict):
     meta = results.get("meta", {})
     sknn_k = meta.get("sknn_k", cfg.SKNN_K)
-    n_epochs = meta.get("n_epochs", cfg.N_EPOCHS)
+    best_epoch = meta.get("best_epoch")
+    max_epochs = meta.get("max_epochs", meta.get("n_epochs", cfg.N_EPOCHS))
+    if best_epoch:
+        gru_label = f"GRU4Rec\n(best {best_epoch}/{max_epochs})"
+    else:
+        gru_label = f"GRU4Rec\n({max_epochs} epoch)"
     return {
         "Popularity\nBaseline": results["popularity"],
         f"SKNN\n(k={sknn_k})": results["sknn"],
-        f"GRU4Rec\n({n_epochs} epoch)": results["gru4rec"],
+        gru_label: results["gru4rec"],
     }
 
 
@@ -82,20 +87,64 @@ def plot_recall_by_k(results: dict, outdir=cfg.OUTPUT_DIR):
 
 
 def plot_loss_curve(results: dict, outdir=cfg.OUTPUT_DIR):
-    """Đường cong loss huấn luyện GRU4Rec theo epoch."""
-    loss_history = results.get("gru_loss_history")
-    if not loss_history:
+    """Đường cong huấn luyện GRU4Rec.
+
+    Hỗ trợ 2 định dạng:
+      - dict mới: {train_loss, val_recall, best_epoch, ...} → 2 subplot
+        (loss train + Recall@20 trên val, đánh dấu best epoch).
+      - list cũ: chỉ loss train → 1 biểu đồ (tương thích ngược).
+    """
+    history = results.get("gru_history", results.get("gru_loss_history"))
+    if not history:
         return
-    epochs = list(range(1, len(loss_history) + 1))
-    plt.figure(figsize=(10, 6))
-    plt.plot(epochs, loss_history, "b-o", linewidth=2.5, markersize=8)
-    plt.xlabel("Epoch", fontsize=13)
-    plt.ylabel("Loss huấn luyện", fontsize=13)
-    plt.title("GRU4Rec: Loss huấn luyện theo Epoch", fontsize=14, fontweight="bold")
-    plt.grid(alpha=0.3)
-    if len(epochs) > 1:
-        plt.xticks(epochs)
-    plt.tight_layout()
+
+    if isinstance(history, dict):
+        train_loss = history.get("train_loss", [])
+        val_recall = history.get("val_recall", [])
+        best_epoch = history.get("best_epoch")
+    else:
+        train_loss = list(history)
+        val_recall = []
+        best_epoch = None
+
+    if not train_loss:
+        return
+    epochs = list(range(1, len(train_loss) + 1))
+
+    # Có val_recall -> vẽ 2 subplot; không có -> giữ biểu đồ loss đơn như cũ.
+    if val_recall:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 9), sharex=True)
+        ax1.plot(epochs, train_loss, "b-o", linewidth=2.5, markersize=8)
+        ax1.set_ylabel("Loss huấn luyện", fontsize=13)
+        ax1.set_title("GRU4Rec: Loss huấn luyện theo Epoch", fontsize=14, fontweight="bold")
+        ax1.grid(alpha=0.3)
+
+        ve = epochs[:len(val_recall)]
+        ax2.plot(ve, val_recall, "g-o", linewidth=2.5, markersize=8)
+        ax2.set_xlabel("Epoch", fontsize=13)
+        ax2.set_ylabel("Recall@20 (val)", fontsize=13)
+        ax2.set_title("GRU4Rec: Recall@20 trên validation theo Epoch", fontsize=14, fontweight="bold")
+        ax2.grid(alpha=0.3)
+
+        if best_epoch:
+            for ax in (ax1, ax2):
+                ax.axvline(best_epoch, color="r", linestyle="--", linewidth=1.5,
+                           label=f"Best epoch {best_epoch}")
+                ax.legend(fontsize=11)
+        if len(epochs) > 1:
+            ax2.set_xticks(epochs)
+        plt.tight_layout()
+    else:
+        plt.figure(figsize=(10, 6))
+        plt.plot(epochs, train_loss, "b-o", linewidth=2.5, markersize=8)
+        plt.xlabel("Epoch", fontsize=13)
+        plt.ylabel("Loss huấn luyện", fontsize=13)
+        plt.title("GRU4Rec: Loss huấn luyện theo Epoch", fontsize=14, fontweight="bold")
+        plt.grid(alpha=0.3)
+        if len(epochs) > 1:
+            plt.xticks(epochs)
+        plt.tight_layout()
+
     plt.savefig(f"{outdir}/gru4rec_loss_curve.png", dpi=150, bbox_inches="tight")
     plt.close()
     print("  OK đã lưu: gru4rec_loss_curve.png")
