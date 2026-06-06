@@ -18,9 +18,11 @@ Hệ thống khuyến nghị dựa trên phiên (Session-Based Recommendation) c
 - [Tech stack](#tech-stack)
 - [Cấu trúc project](#cấu-trúc-project)
 - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
+- [Biến môi trường](#biến-môi-trường)
 - [Cài đặt nhanh](#cài-đặt-nhanh)
 - [Chuẩn bị dataset](#chuẩn-bị-dataset)
 - [Cách chạy](#cách-chạy)
+- [Lệnh nhanh](#lệnh-nhanh)
 - [Kết quả thực nghiệm](#kết-quả-thực-nghiệm)
 - [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
 - [Quy trình xử lý dữ liệu](#quy-trình-xử-lý-dữ-liệu)
@@ -28,9 +30,12 @@ Hệ thống khuyến nghị dựa trên phiên (Session-Based Recommendation) c
 - [Giao thức đánh giá](#giao-thức-đánh-giá)
 - [Notebook](#notebook)
 - [Báo cáo và slide](#báo-cáo-và-slide)
+- [Tài liệu tham khảo](#tài-liệu-tham-khảo)
 - [Artifact đầu ra](#artifact-đầu-ra)
 - [Cấu hình thí nghiệm](#cấu-hình-thí-nghiệm)
 - [Tái lập kết quả](#tái-lập-kết-quả)
+- [Kiểm tra nhanh project trước khi nộp](#kiểm-tra-nhanh-project-trước-khi-nộp)
+- [Triển khai / đóng gói](#triển-khai--đóng-gói)
 - [Troubleshooting](#troubleshooting)
 - [Hạn chế](#hạn-chế)
 - [Hướng phát triển](#hướng-phát-triển)
@@ -100,12 +105,17 @@ Session_Based_RS_Project/
 |   |-- recall_theo_k.png
 |   |-- recall_theo_k_final.png
 |   |-- gru4rec_loss_curve.png
+|-- references/             <- PDF/nguồn tham khảo đã đối chiếu cho report
+|   |-- README.md
+|   |-- *_arxiv*.pdf
+|   |-- *_grouplens.pdf
 |-- 01_gioi_thieu.ipynb
 |-- 02_tien_xu_ly.ipynb
 |-- 03_sknn.ipynb
 |-- 04_gru4rec.ipynb
 |-- 05_so_sanh_ket_qua.ipynb
 |-- report/
+|   |-- logo.png
 |   |-- main.tex
 |   |-- main.pdf
 |-- slide/
@@ -132,6 +142,31 @@ matplotlib>=3.4.0
 scikit-learn>=0.24.0
 torch>=1.9.0
 jupyter>=1.0.0
+```
+
+## Biến môi trường
+
+Project không yêu cầu `.env` hoặc credential bí mật để chạy pipeline offline. Tất cả đường dẫn và siêu tham số nằm trong `src/config.py`.
+
+Biến môi trường hữu ích nhưng không bắt buộc:
+
+| Biến | Mục đích | Giá trị gợi ý |
+|---|---|---|
+| `PYTHONUTF8` | Ép Python dùng UTF-8 trên Windows để in tiếng Việt có dấu ổn định | `1` |
+| `MPLBACKEND` | Ép Matplotlib chạy headless khi vẽ biểu đồ trên server | `Agg` |
+| `CUDA_VISIBLE_DEVICES` | Chọn GPU cho PyTorch nếu máy có nhiều GPU | Ví dụ `0` |
+
+Ví dụ PowerShell:
+
+```powershell
+$env:PYTHONUTF8=1
+python run_all.py --smoke
+```
+
+Ví dụ Git Bash/macOS/Linux:
+
+```bash
+PYTHONUTF8=1 python run_all.py --smoke
 ```
 
 ## Cài đặt nhanh
@@ -178,7 +213,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Kiểm tra cài đặt:
+Kiểm tra cài đặt trên Git Bash/macOS/Linux:
 
 ```bash
 python - <<'PY'
@@ -188,6 +223,12 @@ print('pandas:', pandas.__version__)
 print('PyTorch:', torch.__version__)
 print('CUDA:', torch.cuda.is_available())
 PY
+```
+
+Kiểm tra cài đặt trên Windows PowerShell:
+
+```powershell
+python -c "import numpy, pandas, matplotlib, torch; print('NumPy:', numpy.__version__); print('pandas:', pandas.__version__); print('PyTorch:', torch.__version__); print('CUDA:', torch.cuda.is_available())"
 ```
 
 Kỳ vọng:
@@ -264,11 +305,13 @@ output/gru4rec_loss_curve.png
 python run_all.py --smoke
 ```
 
-Chế độ smoke dùng cấu hình nhỏ hơn:
+Chế độ smoke dùng cấu hình nhỏ hơn, lấy từ `SMOKE_OVERRIDES` trong `src/config.py`:
 
 - Lấy mẫu 1/512.
-- GRU4Rec chạy 1 epoch.
-- Đánh giá tối đa 300 phiên.
+- GRU4Rec chạy tối đa 2 epoch.
+- Early stopping dùng `PATIENCE = 1` để kiểm tra được nhánh dừng sớm.
+- Đánh giá tối đa 300 phiên test.
+- Đánh giá validation tối đa 200 phiên mỗi epoch.
 - K values: `[50, 500]`.
 
 Dùng khi muốn kiểm tra code có chạy không, không dùng để lấy số báo cáo cuối.
@@ -305,6 +348,24 @@ Lệnh này:
 - Không đánh giá lại.
 - Chỉ đọc `output/all_results.pkl`.
 - Vẽ lại biểu đồ PNG trong `output/`.
+
+## Lệnh nhanh
+
+| Lệnh | Mục đích | Khi dùng |
+|---|---|---|
+| `python run_all.py --smoke` | Chạy kiểm tra nhanh pipeline | Trước khi chạy full hoặc sau khi sửa code |
+| `python run_all.py` | Chạy toàn bộ pipeline, sinh số cuối | Khi cần tái lập kết quả báo cáo |
+| `python plot_final.py` | Vẽ lại biểu đồ từ `output/all_results.pkl` | Khi đã có kết quả nhưng muốn cập nhật PNG |
+| `jupyter notebook` | Mở notebook trình bày | Khi cần xem/chạy từng phần học thuật |
+| `latexmk -pdf -interaction=nonstopmode main.tex` | Build report/slide trong thư mục tương ứng | Khi sửa `report/main.tex` hoặc `slide/main.tex` |
+| `python -m venv venv` | Tạo môi trường ảo Python | Lần đầu setup project |
+| `pip install -r requirements.txt` | Cài thư viện Python | Sau khi tạo/activate môi trường ảo |
+
+Ghi chú:
+
+- Nên chạy lệnh từ thư mục gốc project, trừ lệnh build LaTeX phải chạy trong `report/` hoặc `slide/`.
+- Trên Windows PowerShell, nếu log tiếng Việt lỗi encoding, đặt `$env:PYTHONUTF8=1` trước khi chạy Python.
+- Không cần training lại GRU4Rec nếu chỉ muốn xem biểu đồ/report hiện có; dùng `output/all_results.pkl` đã commit.
 
 ## Kết quả thực nghiệm
 
@@ -794,6 +855,37 @@ Ghi chú:
 - Report và slide dùng số liệu thống nhất với `output/all_results.pkl`.
 - Biểu đồ trong report lấy từ `output/`.
 - Nếu chạy lại pipeline, nên chạy `python plot_final.py` hoặc `python run_all.py` trước khi build report.
+- `report/logo.png` là logo dùng trong báo cáo.
+
+## Tài liệu tham khảo
+
+Thư mục:
+
+```text
+references/
+```
+
+Vai trò:
+
+- Lưu PDF/nguồn mở đã đối chiếu khi viết `report/main.tex`.
+- Ghi nguồn chính thức, DOI/URL, và ghi chú kiểm chứng trong `references/README.md`.
+- Tránh bịa nguồn hoặc dùng nhầm paper có tên gần giống.
+- Không lưu dataset Yoochoose trong `references/`; dataset tải riêng theo hướng dẫn ở phần [Chuẩn bị dataset](#chuẩn-bị-dataset).
+
+Các nguồn chính đang được đối chiếu gồm:
+
+| Citation key | Chủ đề | Nguồn |
+|---|---|---|
+| `hidasi2016` | GRU4Rec/RNN cho session-based recommendation | arXiv 1511.06939 |
+| `ludewig2018` | Đánh giá thuật toán session-based; SKNN là baseline mạnh | arXiv 1803.09587 |
+| `li2017` | NARM, attention cho session-based recommendation | arXiv 1711.04725 |
+| `cho2014` | GRU/gated hidden unit | arXiv 1406.1078 |
+| `wu2019` | SR-GNN, graph neural network cho session | arXiv 1811.00855 |
+| `sun2019` | BERT4Rec | arXiv 1904.06690 |
+| `sarwar2001` | Item-based collaborative filtering | GroupLens PDF |
+| `yoochoose2015` | Dataset Yoochoose / RecSys Challenge 2015 | Kaggle |
+
+Xem chi tiết tại `references/README.md`.
 
 ## Artifact đầu ra
 
@@ -871,8 +963,25 @@ GRAD_CLIP = 5.0
 # Validation & early stopping
 VAL_RATIO = 1/9        # đuôi train-full làm validation
 PATIENCE = 2           # dừng nếu Recall@20 trên val không cải thiện sau 2 epoch
+MIN_DELTA = 0.0
 EARLY_STOP_METRIC = "recall"
+VAL_MAX_EVAL = None    # None = đánh giá toàn bộ validation mỗi epoch
 ```
+
+### Smoke mode
+
+```python
+SMOKE_OVERRIDES = {
+    "SAMPLE_FRACTION": 512,
+    "N_EPOCHS": 2,
+    "PATIENCE": 1,
+    "MAX_EVAL": 300,
+    "VAL_MAX_EVAL": 200,
+    "K_VALUES": [50, 500],
+}
+```
+
+`config.resolve(smoke=True)` trả về cấu hình full đã được ghi đè bởi `SMOKE_OVERRIDES`.
 
 ## Tái lập kết quả
 
@@ -958,6 +1067,78 @@ NOTEBOOK_JSON_OK 04_gru4rec.ipynb
 NOTEBOOK_JSON_OK 05_so_sanh_ket_qua.ipynb
 ARTIFACTS_OK
 ```
+
+## Triển khai / đóng gói
+
+Project này là pipeline nghiên cứu offline, không phải web service production. Không có `Dockerfile`, `Procfile`, `render.yaml`, `fly.toml`, Kubernetes config hoặc CI/CD workflow trong repository hiện tại.
+
+Cách đóng gói khuyến nghị khi nộp hoặc chuyển máy:
+
+### 1. Gói source + artifact nhỏ
+
+Nên đưa lên GitHub hoặc nén kèm:
+
+```text
+README.md
+requirements.txt
+run_all.py
+plot_final.py
+src/
+references/
+report/main.tex
+report/main.pdf
+report/logo.png
+slide/main.tex
+slide/main.pdf
+output/all_results.pkl
+output/*.png
+01_gioi_thieu.ipynb
+02_tien_xu_ly.ipynb
+03_sknn.ipynb
+04_gru4rec.ipynb
+05_so_sanh_ket_qua.ipynb
+```
+
+### 2. Không gói dữ liệu lớn vào GitHub
+
+Không nên commit:
+
+```text
+data/yoochoose-clicks.dat
+data/yoochoose-buys.dat
+data/processed_data.pkl
+output/gru4rec_model.pt
+```
+
+Lý do:
+
+- Dataset gốc rất lớn, tải riêng từ Kaggle.
+- `processed_data.pkl` sinh lại được bằng `python run_all.py`.
+- `gru4rec_model.pt` là checkpoint binary, sinh lại được sau huấn luyện.
+
+### 3. Docker tối thiểu nếu cần chạy trên server
+
+Nếu bắt buộc cần môi trường đóng gói, có thể tạo Dockerfile tối thiểu như sau:
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+CMD ["python", "run_all.py", "--smoke"]
+```
+
+Sau đó build/chạy:
+
+```bash
+docker build -t session-based-rs .
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/output:/app/output" session-based-rs
+```
+
+Ghi chú: Dockerfile trên chỉ là gợi ý, hiện chưa được commit trong repository.
 
 ## Troubleshooting
 
